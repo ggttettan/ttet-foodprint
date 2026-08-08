@@ -1,0 +1,2491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1, viewport-fit=cover"
+    >
+    <meta
+        name="description"
+        content="TTET's interactive journey log - a cinematic map of places visited across Asia, Europe and beyond."
+    >
+    <meta name="theme-color" content="#111315">
+    <title>TTET's Footprint | Interactive Journey Log</title>
+
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin=""
+    >
+
+    <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Montserrat:wght@300;400;500;600&display=swap"
+    >
+
+    <style>
+        :root {
+            --background: #111315;
+            --panel: rgba(18, 20, 23, 0.88);
+            --panel-solid: #181b1f;
+            --panel-hover: rgba(255, 255, 255, 0.065);
+            --gold: #d4af37;
+            --gold-light: #ecd477;
+            --text: #f1f1f1;
+            --muted: #8f949b;
+            --hairline: rgba(255, 255, 255, 0.1);
+            --gold-border: rgba(212, 175, 55, 0.38);
+            --danger: #c86c6c;
+            --control-size: 42px;
+            --shadow: 0 15px 42px rgba(0, 0, 0, 0.42);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+            color: var(--text);
+            background: var(--background);
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        button,
+        input {
+            font: inherit;
+        }
+
+        button {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            background: var(--background);
+        }
+
+        /* ---------- Atmosphere ---------- */
+
+        .atmosphere {
+            position: fixed;
+            inset: 0;
+            z-index: 700;
+            pointer-events: none;
+        }
+
+        .atmosphere::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(
+                    circle at 54% 42%,
+                    transparent 47%,
+                    rgba(0, 0, 0, 0.5) 100%
+                );
+        }
+
+        .atmosphere::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            opacity: 0.02;
+            background-image:
+                url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.05' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        }
+
+        body.atmosphere-hidden .atmosphere {
+            display: none;
+        }
+
+        body.is-playing .atmosphere::after {
+            display: none;
+        }
+
+        /* ---------- Branding ---------- */
+
+        .title-overlay {
+            position: fixed;
+            top: 23px;
+            left: 25px;
+            z-index: 1000;
+            pointer-events: none;
+            animation: reveal 600ms ease both;
+        }
+
+        .title-overlay h1 {
+            margin: 0;
+            font-family: 'Cormorant Garamond', serif;
+            font-size: clamp(2.25rem, 4vw, 3.15rem);
+            font-weight: 700;
+            line-height: 0.87;
+            letter-spacing: 0.035em;
+            text-transform: lowercase;
+            background:
+                linear-gradient(
+                    120deg,
+                    var(--gold-light),
+                    var(--gold) 58%,
+                    #967323
+                );
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 4px 12px rgba(212, 175, 55, 0.15));
+        }
+
+        .title-divider {
+            width: 45px;
+            height: 1px;
+            margin: 12px 0 8px 3px;
+            background: linear-gradient(90deg, var(--gold), transparent);
+        }
+
+        .title-overlay p {
+            margin: 0 0 0 3px;
+            color: var(--muted);
+            font-size: 0.6rem;
+            font-weight: 400;
+            letter-spacing: 0.17em;
+            line-height: 1.6;
+            text-transform: uppercase;
+        }
+
+        .title-overlay strong {
+            color: var(--gold-light);
+            font-weight: 500;
+        }
+
+        /* ---------- Minimal command interface ---------- */
+
+        .controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1100;
+            width: min(310px, calc(100vw - 40px));
+            display: grid;
+            justify-items: end;
+            gap: 8px;
+            animation: reveal 500ms 100ms ease both;
+        }
+
+        .panel {
+            border: 1px solid var(--hairline);
+            border-radius: 14px;
+            background: var(--panel);
+            box-shadow:
+                var(--shadow),
+                inset 0 1px rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(14px) saturate(125%);
+            -webkit-backdrop-filter: blur(14px) saturate(125%);
+        }
+
+        body.is-playing .panel {
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+        }
+
+        .command-bar {
+            width: auto;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            padding: 4px;
+            border-radius: 999px;
+        }
+
+        .icon-button {
+            position: relative;
+            min-width: var(--control-size);
+            height: var(--control-size);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            padding: 0 12px;
+            color: var(--muted);
+            border: 0;
+            border-radius: 999px;
+            outline: 0;
+            background: transparent;
+            cursor: pointer;
+            font-size: 0.67rem;
+            font-weight: 500;
+            letter-spacing: 0.06em;
+            transition:
+                color 150ms ease,
+                background 150ms ease,
+                transform 100ms ease;
+        }
+
+        .icon-button:hover,
+        .icon-button:focus-visible {
+            color: var(--text);
+            background: var(--panel-hover);
+        }
+
+        .icon-button:focus-visible {
+            box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.32);
+        }
+
+        .icon-button:active {
+            transform: scale(0.94);
+        }
+
+        .primary-action {
+            padding-inline: 15px;
+            color: #17191c;
+            background: var(--gold-light);
+        }
+
+        .primary-action:hover,
+        .primary-action:focus-visible {
+            color: #111315;
+            background: #f0da83;
+        }
+
+        .primary-action.stop-state {
+            color: #efefe1;
+            background: rgba(178, 73, 73, 0.35);
+        }
+
+        .button-label {
+            text-transform: uppercase;
+        }
+
+        .speed-value {
+            color: var(--gold-light);
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Tooltips */
+
+        .icon-button::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            top: calc(100% + 10px);
+            left: 50%;
+            z-index: 40;
+            padding: 6px 8px;
+            color: var(--text);
+            border: 1px solid var(--hairline);
+            border-radius: 6px;
+            background: rgba(18, 20, 23, 0.97);
+            opacity: 0;
+            translate: -50% -4px;
+            visibility: hidden;
+            pointer-events: none;
+            white-space: nowrap;
+            font-size: 0.56rem;
+            font-weight: 400;
+            letter-spacing: 0.03em;
+            transition:
+                opacity 140ms ease,
+                translate 140ms ease,
+                visibility 140ms ease;
+        }
+
+        .icon-button:hover::after,
+        .icon-button:focus-visible::after {
+            opacity: 1;
+            translate: -50% 0;
+            visibility: visible;
+        }
+
+        /* Menu icon */
+
+        .menu-icon {
+            width: 16px;
+            height: 12px;
+            display: grid;
+            align-content: space-between;
+        }
+
+        .menu-icon i {
+            width: 100%;
+            height: 1px;
+            display: block;
+            background: currentColor;
+            transition:
+                transform 180ms ease,
+                opacity 180ms ease;
+        }
+
+        .controls.drawer-open .menu-icon i:nth-child(1) {
+            transform: translateY(5.5px) rotate(45deg);
+        }
+
+        .controls.drawer-open .menu-icon i:nth-child(2) {
+            opacity: 0;
+        }
+
+        .controls.drawer-open .menu-icon i:nth-child(3) {
+            transform: translateY(-5.5px) rotate(-45deg);
+        }
+
+        /* ---------- Country menu ---------- */
+
+        .filter {
+            position: relative;
+        }
+
+        .active-indicator {
+            position: absolute;
+            top: 7px;
+            right: 7px;
+            width: 5px;
+            height: 5px;
+            display: none;
+            border-radius: 50%;
+            background: var(--gold);
+            box-shadow: 0 0 7px rgba(212, 175, 55, 0.9);
+        }
+
+        .filter.has-selection .active-indicator {
+            display: block;
+        }
+
+        .filter-menu {
+            position: absolute;
+            top: calc(100% + 10px);
+            right: -44px;
+            width: 235px;
+            max-height: min(420px, 50vh);
+            display: none;
+            overflow-y: auto;
+            padding: 6px;
+            border-radius: 12px;
+        }
+
+        .filter.open .filter-menu {
+            display: block;
+            animation: menu-open 160ms ease both;
+        }
+
+        .filter-option {
+            width: 100%;
+            min-height: 37px;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 7px 10px;
+            color: var(--muted);
+            border: 0;
+            border-radius: 8px;
+            outline: 0;
+            background: transparent;
+            cursor: pointer;
+            font-size: 0.67rem;
+            letter-spacing: 0.025em;
+            text-align: left;
+        }
+
+        .filter-option:hover,
+        .filter-option:focus-visible {
+            color: var(--text);
+            background: var(--panel-hover);
+        }
+
+        .filter-option.active {
+            color: var(--gold-light);
+            background: rgba(212, 175, 55, 0.1);
+        }
+
+        .filter-dot {
+            width: 6px;
+            height: 6px;
+            flex: 0 0 auto;
+            border: 1px solid rgba(212, 175, 55, 0.5);
+            border-radius: 50%;
+        }
+
+        .filter-option.active .filter-dot {
+            border-color: var(--gold);
+            background: var(--gold);
+        }
+
+        .filter-option-count {
+            margin-left: auto;
+            opacity: 0.55;
+            font-size: 0.58rem;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .filter-menu::-webkit-scrollbar,
+        .control-drawer::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        .filter-menu::-webkit-scrollbar-thumb,
+        .control-drawer::-webkit-scrollbar-thumb {
+            border-radius: 999px;
+            background: rgba(212, 175, 55, 0.35);
+        }
+
+        /* ---------- Drawer ---------- */
+
+        .control-drawer {
+            width: 100%;
+            padding: 10px;
+            transform-origin: top right;
+        }
+
+        .control-drawer[hidden] {
+            display: none;
+        }
+
+        .control-drawer.drawer-visible {
+            display: grid;
+            gap: 8px;
+            animation: drawer-open 180ms ease both;
+        }
+
+        body.is-playing .control-drawer {
+            display: none !important;
+        }
+
+        .search-panel {
+            position: relative;
+            border: 1px solid transparent;
+            border-radius: 9px;
+            background: rgba(255, 255, 255, 0.035);
+            transition:
+                border-color 150ms ease,
+                background 150ms ease;
+        }
+
+        .search-panel:focus-within {
+            border-color: rgba(212, 175, 55, 0.45);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .search-icon {
+            position: absolute;
+            top: 50%;
+            left: 12px;
+            color: var(--muted);
+            translate: 0 -50%;
+            pointer-events: none;
+        }
+
+        .search-input {
+            width: 100%;
+            height: 42px;
+            padding: 0 66px 0 35px;
+            color: var(--text);
+            border: 0;
+            outline: 0;
+            background: transparent;
+            font-size: 0.72rem;
+        }
+
+        .search-input::placeholder {
+            color: #777c83;
+        }
+
+        .search-count {
+            position: absolute;
+            top: 50%;
+            right: 11px;
+            color: var(--muted);
+            translate: 0 -50%;
+            pointer-events: none;
+            font-size: 0.56rem;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .navigation-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        .minimal-button,
+        .drawer-action {
+            min-height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: var(--muted);
+            border: 1px solid transparent;
+            border-radius: 8px;
+            outline: 0;
+            background: rgba(255, 255, 255, 0.025);
+            cursor: pointer;
+            font-size: 0.65rem;
+            transition:
+                color 140ms ease,
+                border-color 140ms ease,
+                background 140ms ease;
+        }
+
+        .minimal-button:hover,
+        .minimal-button:focus-visible,
+        .drawer-action:hover,
+        .drawer-action:focus-visible {
+            color: var(--text);
+            border-color: var(--hairline);
+            background: rgba(255, 255, 255, 0.055);
+        }
+
+        .drawer-action {
+            width: 100%;
+            justify-content: space-between;
+            padding: 0 12px;
+        }
+
+        .drawer-divider {
+            height: 1px;
+            margin: 2px 1px;
+            background: var(--hairline);
+        }
+
+        /* ---------- Toggle switches ---------- */
+
+        .toggle-list {
+            display: grid;
+            gap: 2px;
+        }
+
+        .toggle-row {
+            min-height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            padding: 7px 4px;
+        }
+
+        .toggle-row strong {
+            display: block;
+            margin-bottom: 3px;
+            color: #d9dade;
+            font-size: 0.66rem;
+            font-weight: 500;
+        }
+
+        .toggle-row small {
+            display: block;
+            color: #777c83;
+            font-size: 0.57rem;
+        }
+
+        .switch {
+            position: relative;
+            width: 34px;
+            height: 20px;
+            flex: 0 0 auto;
+            padding: 0;
+            border: 1px solid var(--hairline);
+            border-radius: 999px;
+            outline: 0;
+            background: rgba(255, 255, 255, 0.06);
+            cursor: pointer;
+            transition:
+                border-color 160ms ease,
+                background 160ms ease;
+        }
+
+        .switch span {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #83878c;
+            transition:
+                transform 180ms ease,
+                background 180ms ease,
+                box-shadow 180ms ease;
+        }
+
+        .switch[aria-checked="true"] {
+            border-color: rgba(212, 175, 55, 0.5);
+            background: rgba(212, 175, 55, 0.16);
+        }
+
+        .switch[aria-checked="true"] span {
+            transform: translateX(14px);
+            background: var(--gold-light);
+            box-shadow: 0 0 8px rgba(212, 175, 55, 0.6);
+        }
+
+        .switch:focus-visible {
+            box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.3);
+        }
+
+        /* ---------- Progress ---------- */
+
+        .progress-panel {
+            width: 100%;
+            display: none;
+            padding: 10px 12px;
+            border-radius: 10px;
+        }
+
+        .progress-panel.visible {
+            display: block;
+            animation: drawer-open 180ms ease both;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 7px;
+            color: var(--muted);
+            font-size: 0.55rem;
+            letter-spacing: 0.04em;
+        }
+
+        .progress-route {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .progress-route strong,
+        .progress-distance {
+            color: var(--gold-light);
+            font-weight: 500;
+        }
+
+        .progress-track {
+            height: 2px;
+            overflow: hidden;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .progress-fill {
+            width: 0;
+            height: 100%;
+            background: var(--gold);
+            transition: width 100ms linear;
+        }
+
+        /* ---------- Map markers ---------- */
+
+        .custom-div-icon,
+        .traveller-wrap {
+            background: transparent;
+            border: 0;
+        }
+
+        .fancy-dot {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 11px;
+            height: 11px;
+            translate: -50% -50%;
+            border: 2px solid white;
+            border-radius: 50%;
+            background: var(--gold);
+            box-shadow:
+                0 0 9px rgba(212, 175, 55, 0.8),
+                0 0 18px rgba(212, 175, 55, 0.3);
+        }
+
+        .fancy-dot::after {
+            content: "";
+            position: absolute;
+            inset: -2px;
+            z-index: -1;
+            border-radius: inherit;
+            background: var(--gold);
+            animation: pulse 2.4s infinite;
+        }
+
+        body.is-playing .fancy-dot::after,
+        body.pulse-hidden .fancy-dot::after {
+            display: none;
+        }
+
+        .marker-arrive .fancy-dot {
+            animation: arrival 700ms ease;
+            background: white;
+            box-shadow:
+                0 0 12px white,
+                0 0 32px var(--gold);
+        }
+
+        .traveller-wrap {
+            animation: none !important;
+        }
+
+        .traveller {
+            position: relative;
+            width: 24px;
+            height: 24px;
+            pointer-events: none;
+        }
+
+        .traveller-core {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 11px;
+            height: 11px;
+            translate: -50% -50%;
+            border: 2px solid var(--gold-light);
+            border-radius: 50%;
+            background: white;
+            box-shadow:
+                0 0 9px white,
+                0 0 22px var(--gold),
+                0 0 36px rgba(212, 175, 55, 0.7);
+        }
+
+        .traveller-tail {
+            position: absolute;
+            top: 50%;
+            right: 50%;
+            width: 36px;
+            height: 4px;
+            translate: 0 -50%;
+            transform-origin: right center;
+            border-radius: 999px;
+            background:
+                linear-gradient(
+                    90deg,
+                    transparent,
+                    rgba(212, 175, 55, 0.2),
+                    rgba(236, 212, 119, 0.95)
+                );
+        }
+
+        /* ---------- Feature states ---------- */
+
+        body.labels-hidden .leaflet-tooltip {
+            display: none !important;
+        }
+
+        /* ---------- Leaflet styling ---------- */
+
+        .leaflet-popup-content-wrapper {
+            color: var(--text);
+            border: 1px solid rgba(212, 175, 55, 0.27);
+            border-radius: 11px;
+            background: var(--panel-solid);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.65);
+        }
+
+        .leaflet-popup-content {
+            min-width: 175px;
+            margin: 13px 16px;
+            line-height: 1.55;
+        }
+
+        .leaflet-popup-content h3 {
+            margin: 0 0 3px;
+            color: var(--gold-light);
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 1.5rem;
+            font-weight: 600;
+            line-height: 1.1;
+        }
+
+        .popup-country {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--muted);
+            font-size: 0.58rem;
+            letter-spacing: 0.13em;
+            text-transform: uppercase;
+        }
+
+        .leaflet-popup-content p {
+            margin: 0;
+            color: #d9dade;
+            font-size: 0.72rem;
+            font-weight: 300;
+        }
+
+        .leaflet-popup-tip {
+            background: var(--panel-solid);
+        }
+
+        .leaflet-container a.leaflet-popup-close-button {
+            color: #878787;
+        }
+
+        .leaflet-tooltip.fancy-label {
+            color: var(--text);
+            border: 1px solid rgba(212, 175, 55, 0.35);
+            border-radius: 4px;
+            background: rgba(18, 20, 23, 0.91);
+            box-shadow: 0 5px 14px rgba(0, 0, 0, 0.4);
+            font-family: 'Montserrat', sans-serif;
+            font-size: 8px;
+            font-weight: 400;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .leaflet-tooltip-top.fancy-label::before {
+            border-top-color: rgba(212, 175, 55, 0.35);
+        }
+
+        .leaflet-control-zoom a {
+            color: var(--gold) !important;
+            border-color: rgba(212, 175, 55, 0.2) !important;
+            background: rgba(18, 20, 23, 0.9) !important;
+        }
+
+        .leaflet-control-attribution {
+            color: var(--muted);
+            background: rgba(18, 20, 23, 0.75) !important;
+            font-size: 8px;
+        }
+
+        .leaflet-control-attribution a {
+            color: #cbb255;
+        }
+
+        /* ---------- Accessibility ---------- */
+
+        .sr-only {
+            position: absolute !important;
+            width: 1px !important;
+            height: 1px !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            clip: rect(0, 0, 0, 0) !important;
+            white-space: nowrap !important;
+            border: 0 !important;
+        }
+
+        .noscript-message {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            color: var(--text);
+            background: var(--background);
+            text-align: center;
+        }
+
+        /* ---------- Animations ---------- */
+
+        @keyframes reveal {
+            from {
+                opacity: 0;
+                transform: translateY(-8px);
+            }
+
+            to {
+                opacity: 1;
+                transform: none;
+            }
+        }
+
+        @keyframes menu-open {
+            from {
+                opacity: 0;
+                transform: translateY(-5px) scale(0.98);
+            }
+
+            to {
+                opacity: 1;
+                transform: none;
+            }
+        }
+
+        @keyframes drawer-open {
+            from {
+                opacity: 0;
+                transform: translateY(-6px) scale(0.98);
+            }
+
+            to {
+                opacity: 1;
+                transform: none;
+            }
+        }
+
+        @keyframes pulse {
+            from {
+                opacity: 0.5;
+                transform: scale(1);
+            }
+
+            to {
+                opacity: 0;
+                transform: scale(3.4);
+            }
+        }
+
+        @keyframes arrival {
+            0% {
+                scale: 1;
+            }
+
+            42% {
+                scale: 2.05;
+            }
+
+            100% {
+                scale: 1;
+            }
+        }
+
+        /* ---------- Mobile ---------- */
+
+        @media (max-width: 680px) {
+            .title-overlay {
+                top: max(12px, env(safe-area-inset-top));
+                left: 14px;
+            }
+
+            .title-overlay h1 {
+                font-size: 2.1rem;
+            }
+
+            .title-overlay p {
+                max-width: 190px;
+                font-size: 0.52rem;
+            }
+
+            .controls {
+                top: auto;
+                right: 10px;
+                bottom: max(12px, env(safe-area-inset-bottom));
+                left: 10px;
+                width: auto;
+            }
+
+            .command-bar {
+                justify-self: end;
+            }
+
+            .control-drawer {
+                max-height: 55vh;
+                overflow-y: auto;
+            }
+
+            .filter-menu {
+                top: auto;
+                right: -44px;
+                bottom: calc(100% + 10px);
+                max-height: 42vh;
+            }
+
+            .icon-button::after {
+                display: none;
+            }
+
+            .button-label {
+                display: none;
+            }
+
+            .primary-action {
+                width: var(--control-size);
+                padding: 0;
+            }
+
+            .leaflet-control-zoom {
+                margin-right: 12px !important;
+                margin-bottom: 76px !important;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .title-overlay,
+            .controls,
+            .filter.open .filter-menu,
+            .control-drawer.drawer-visible,
+            .marker-arrive .fancy-dot {
+                animation: none;
+            }
+
+            .fancy-dot::after {
+                display: none;
+            }
+
+            .progress-fill {
+                transition: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <noscript>
+        <div class="noscript-message">
+            JavaScript is required to view TTET's Footprint.
+        </div>
+    </noscript>
+
+    <div class="atmosphere" aria-hidden="true"></div>
+
+    <header class="title-overlay" aria-label="TTET's Footprint">
+        <h1>ttet's<br>footprint</h1>
+        <div class="title-divider"></div>
+        <p>
+            Interactive journey log 🌍<br>
+            <strong id="stats">Loading...</strong>
+        </p>
+    </header>
+
+    <section class="controls" aria-label="Map controls">
+        <div class="command-bar panel">
+            <button
+                class="icon-button primary-action"
+                id="playButton"
+                type="button"
+                aria-label="Play journey"
+                data-tooltip="Play journey"
+            >
+                <span id="playIcon" aria-hidden="true">▶</span>
+                <span class="button-label" id="playLabel">Play</span>
+            </button>
+
+            <button
+                class="icon-button"
+                id="speedButton"
+                type="button"
+                aria-label="Playback speed: 1x"
+                data-tooltip="Playback speed"
+            >
+                <span class="speed-value">1x</span>
+            </button>
+
+            <div class="filter" id="countryFilter">
+                <button
+                    class="icon-button"
+                    id="filterToggle"
+                    type="button"
+                    aria-label="Filter by country"
+                    aria-expanded="false"
+                    aria-controls="filterMenu"
+                    data-tooltip="Country filter"
+                >
+                    <span aria-hidden="true">⚲</span>
+                    <span
+                        class="active-indicator"
+                        id="filterSelection"
+                        aria-hidden="true"
+                    ></span>
+                </button>
+
+                <div
+                    class="panel filter-menu"
+                    id="filterMenu"
+                    role="listbox"
+                    aria-label="Filter by country"
+                ></div>
+            </div>
+
+            <button
+                class="icon-button"
+                id="menuButton"
+                type="button"
+                aria-label="Open map options"
+                aria-expanded="false"
+                aria-controls="controlDrawer"
+                data-tooltip="More controls"
+            >
+                <span class="menu-icon" aria-hidden="true">
+                    <i></i><i></i><i></i>
+                </span>
+            </button>
+        </div>
+
+        <div class="panel progress-panel" id="progressPanel">
+            <div class="progress-header">
+                <span class="progress-route" id="progressRoute">Ready</span>
+                <span class="progress-distance" id="progressDistance"></span>
+            </div>
+
+            <div
+                class="progress-track"
+                id="progressTrack"
+                role="progressbar"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-valuenow="0"
+            >
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+        </div>
+
+        <div class="control-drawer panel" id="controlDrawer" hidden>
+            <div class="search-panel">
+                <label class="sr-only" for="searchInput">
+                    Search by city or country
+                </label>
+
+                <span class="search-icon" aria-hidden="true">⚲</span>
+
+                <input
+                    id="searchInput"
+                    class="search-input"
+                    type="search"
+                    autocomplete="off"
+                    placeholder="Search places"
+                >
+
+                <span class="search-count" id="searchCount"></span>
+            </div>
+
+            <div class="drawer-divider"></div>
+
+            <div class="navigation-row">
+                <button class="minimal-button" id="previousButton" type="button">
+                    <span aria-hidden="true">◁</span>
+                    Previous
+                </button>
+                <button class="minimal-button" id="nextButton" type="button">
+                    Next
+                    <span aria-hidden="true">▷</span>
+                </button>
+            </div>
+
+            <button class="drawer-action" id="fitButton" type="button">
+                <span>Fit all locations</span>
+                <span aria-hidden="true">⛶</span>
+            </button>
+
+            <div class="drawer-divider"></div>
+
+            <div class="toggle-list">
+                <div class="toggle-row">
+                    <div>
+                        <strong>Place labels</strong>
+                        <small>Show names on marker hover</small>
+                    </div>
+                    <button
+                        class="switch"
+                        id="labelsToggle"
+                        type="button"
+                        role="switch"
+                        aria-checked="true"
+                        aria-label="Show place labels"
+                    >
+                        <span></span>
+                    </button>
+                </div>
+
+                <div class="toggle-row">
+                    <div>
+                        <strong>Journey trails</strong>
+                        <small>Keep completed routes visible</small>
+                    </div>
+                    <button
+                        class="switch"
+                        id="trailsToggle"
+                        type="button"
+                        role="switch"
+                        aria-checked="true"
+                        aria-label="Show journey trails"
+                    >
+                        <span></span>
+                    </button>
+                </div>
+
+                <div class="toggle-row">
+                    <div>
+                        <strong>Atmosphere</strong>
+                        <small>Vignette and film texture</small>
+                    </div>
+                    <button
+                        class="switch"
+                        id="atmosphereToggle"
+                        type="button"
+                        role="switch"
+                        aria-checked="true"
+                        aria-label="Show atmospheric effects"
+                    >
+                        <span></span>
+                    </button>
+                </div>
+
+                <div class="toggle-row">
+                    <div>
+                        <strong>Marker pulse</strong>
+                        <small>Animate location markers</small>
+                    </div>
+                    <button
+                        class="switch"
+                        id="pulseToggle"
+                        type="button"
+                        role="switch"
+                        aria-checked="true"
+                        aria-label="Animate location markers"
+                    >
+                        <span></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div
+        id="map"
+        role="application"
+        aria-label="Interactive map of visited locations"
+    ></div>
+
+    <div
+        id="liveRegion"
+        class="sr-only"
+        aria-live="polite"
+        aria-atomic="true"
+    ></div>
+
+    <script
+        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""
+    ></script>
+
+    <script>
+        "use strict";
+
+        /*
+         * Format:
+         * Name | Country | Latitude | Longitude | Details
+         */
+        const locationData = `
+Penang|Malaysia|5.2971|100.2768|Base operations / Bayan Lepas.
+Kuala Lumpur|Malaysia|3.1390|101.6869|Frequent transit hub.
+Bali|Indonesia|-8.4095|115.1889|July 2026. Inland exploration.
+Bugis|Singapore|1.3000|103.8550|April 2026. Stayed at Capsule@Hive Bugis.
+Hong Kong|Hong Kong|22.3193|114.1694|Timeline record.
+Tokyo|Japan|35.6664|139.8732|March 2026. Stayed at Grand Hostel LDK Tokyo Nishikasai.
+Osaka|Japan|34.6937|135.5023|Exploring the nation's kitchen.
+Mount Fuji|Japan|35.3606|138.7274|June 2026. 5th Station exploration.
+Uji|Japan|34.8893|135.8016|Historic city travel segment.
+Nara|Japan|34.6851|135.8048|Historic city travel segment.
+Kyoto|Japan|35.0116|135.7681|Historic city travel segment.
+Sadao|Thailand|6.6353|100.4223|Timeline record.
+Kho Hong|Thailand|7.0197|100.5057|Timeline record.
+Hat Yai|Thailand|7.0096|100.4735|Timeline record.
+Samnak Kham|Thailand|6.5298|100.4184|Timeline record.
+Bangkok|Thailand|13.7563|100.5018|Timeline record.
+Khuan Lang|Thailand|6.9934|100.4357|Timeline record.
+Khlong Hae|Thailand|7.0422|100.4764|Timeline record.
+Songkhla|Thailand|7.1898|100.5954|Timeline record.
+Prakop|Thailand|6.6430|100.7490|Timeline record.
+Betong|Thailand|5.7725|101.0713|Timeline record.
+Tano Maero|Thailand|5.8203|101.0267|Timeline record.
+Aiyoeweng|Thailand|5.9754|101.1764|Timeline record.
+Ao Nang|Thailand|8.0319|98.8239|Timeline record.
+Khao Kop|Thailand|7.7121|99.5750|Timeline record.
+Tha Chang|Thailand|9.2638|99.2081|Timeline record.
+Phatong|Thailand|7.0067|100.3546|Timeline record.
+Krabi|Thailand|8.0863|98.9063|Travel segment.
+Phuket|Thailand|7.8804|98.3923|Travel segment.
+Chiang Mai|Thailand|18.7883|98.9853|Travel segment.
+Ho Chi Minh City|Vietnam|10.8231|106.6297|Travel segment.
+Hanoi|Vietnam|21.0285|105.8542|Travel segment.
+Dubai|United Arab Emirates|25.2048|55.2708|Travel segment.
+Beijing|China|39.9042|116.4074|Autumn 2025 exploration segment.
+Chengdu|China|30.6586|104.0649|Autumn 2025 exploration segment.
+Taipei|Taiwan|25.0330|121.5654|Autumn 2025 exploration segment.
+Chongqing|China|29.5627|106.5528|Timeline record.
+Xiamen|China|24.4798|118.0894|Timeline record.
+Leshan|China|29.5594|103.7610|Timeline record.
+Xianyang|China|34.3312|108.7082|Timeline record.
+Xi'an|China|34.3416|108.9398|Timeline record.
+Yan'an|China|36.5957|109.4883|Timeline record.
+Tongchuan|China|34.8967|108.9440|Timeline record.
+Weinan|China|34.4988|109.5085|Timeline record.
+Baoji|China|34.3621|107.1437|Timeline record.
+London|UK|51.5074|-0.1278|Timeline record.
+Edinburgh|UK|55.9533|-3.1883|Timeline record.
+Pitlochry|UK|56.7044|-3.7297|Timeline record.
+Aberarder|UK|57.2790|-4.2690|Timeline record.
+Glenfinnan|UK|56.8718|-5.4371|Timeline record.
+Fort William|UK|56.8198|-5.1052|Timeline record.
+Dundee|UK|56.4620|-2.9707|Timeline record.
+Aberdeen|UK|57.1497|-2.0943|Timeline record.
+Elgin|UK|57.6496|-3.3175|Timeline record.
+Inverness|UK|57.4778|-4.2247|Timeline record.
+Stonehaven|UK|56.9634|-2.2115|Timeline record.
+Warrington|UK|53.3900|-2.5970|Timeline record.
+Chester|UK|53.1934|-2.8931|Timeline record.
+Llandudno|UK|53.3239|-3.8276|Timeline record.
+Conwy|UK|53.2829|-3.8295|Timeline record.
+Llandudno Junction|UK|53.2878|-3.8052|Timeline record.
+Currie|UK|55.8953|-3.3134|Timeline record.
+North Berwick|UK|56.0592|-2.7214|Timeline record.
+Sheffield|UK|53.3811|-1.4701|Timeline record.
+Crewe|UK|53.0975|-2.4396|Timeline record.
+Manchester|UK|53.4800|-2.2426|Timeline record.
+Dunbar|UK|55.9996|-2.5152|Timeline record.
+Ingliston|UK|55.9423|-3.3644|Timeline record.
+Horley|UK|51.1712|-0.1691|Timeline record.
+Loanhead|UK|55.8809|-3.1539|Timeline record.
+Glasgow|UK|55.8642|-4.2518|Timeline record.
+Leeds|UK|53.8008|-1.5491|Timeline record.
+Newcastle upon Tyne|UK|54.9783|-1.6178|Timeline record.
+Bristol|UK|51.4545|-2.5879|Timeline record.
+Bellshill|UK|55.8202|-4.0252|Timeline record.
+Dublin|Ireland|53.3498|-6.2603|Timeline record.
+Bray|Ireland|53.2006|-6.1111|Timeline record.
+Cork|Ireland|51.8985|-8.4756|Timeline record.
+Cobh|Ireland|51.8503|-8.2943|Timeline record.
+Lisbon|Portugal|38.7223|-9.1393|European segment exploration.
+Barcelona|Spain|41.3851|2.1734|Timeline record.
+Budapest|Hungary|47.4979|19.0402|European segment exploration.
+Schwechat|Austria|48.1396|16.4717|Timeline record.
+Vienna|Austria|48.2082|16.3738|Timeline record.
+Prague|Czechia|50.0755|14.4378|Timeline record.
+Utrecht|Netherlands|52.0907|5.1214|Timeline record.
+Amsterdam|Netherlands|52.3676|4.9041|Timeline record.
+Koog aan de Zaan|Netherlands|52.4608|4.8081|Timeline record.
+Zaandam|Netherlands|52.4420|4.8292|Timeline record.
+Vatican City|Vatican City|41.9029|12.4534|Timeline record.
+Switzerland|Switzerland|46.8182|8.2275|Timeline record.
+Düsseldorf|Germany|51.2277|6.7735|European segment exploration.
+Füssen|Germany|47.5696|10.7004|Timeline record.
+Schwangau|Germany|47.5772|10.7334|Timeline record.
+Kempten|Germany|47.7286|10.3160|Timeline record.
+Mainz|Germany|49.9929|8.2473|Timeline record.
+Koblenz|Germany|50.3569|7.5940|Timeline record.
+Kevelaer|Germany|51.5828|6.2443|Timeline record.
+Weeze|Germany|51.6284|6.1963|Timeline record.
+Cologne|Germany|50.9375|6.9603|Timeline record.
+Frankfurt am Main|Germany|50.1109|8.6821|Timeline record.
+Munich|Germany|48.1351|11.5820|Timeline record.
+Wangen im Allgäu|Germany|47.6865|9.8335|Timeline record.
+Ravensburg|Germany|47.7811|9.6125|Timeline record.
+Weingarten|Germany|47.8080|9.6423|Timeline record.
+Ulm|Germany|48.3984|9.9916|Timeline record.
+Friedrichshafen|Germany|47.6536|9.4739|Timeline record.
+Lindau|Germany|47.5458|9.6836|Timeline record.
+Memmingen|Germany|47.9837|10.1802|Timeline record.
+Bologna|Italy|44.4949|11.3426|Timeline record.
+Venice|Italy|45.4408|12.3155|Timeline record.
+Milan|Italy|45.4642|9.1900|Timeline record.
+Perledo|Italy|46.0160|9.3039|Timeline record.
+Varenna|Italy|46.0118|9.2841|Timeline record.
+Bellagio|Italy|45.9800|9.2562|Timeline record.
+Lenno|Italy|45.9683|9.1932|Timeline record.
+Menaggio|Italy|46.0223|9.2393|Timeline record.
+Rome|Italy|41.9028|12.4964|Timeline record.
+Salerno|Italy|40.6824|14.7681|Timeline record.
+Amalfi|Italy|40.6340|14.6027|Timeline record.
+Pianillo|Italy|40.6385|14.5510|Timeline record.
+Sorrento|Italy|40.6263|14.3758|Timeline record.
+Naples|Italy|40.8518|14.2681|Timeline record.
+        `.trim();
+
+        const locations = locationData
+            .split("\n")
+            .map((line, index) => {
+                const [name, country, latitude, longitude, details] =
+                    line.trim().split("|");
+
+                return {
+                    index,
+                    name,
+                    country,
+                    coords: [Number(latitude), Number(longitude)],
+                    details
+                };
+            });
+
+        const elements = {
+            controls: document.querySelector(".controls"),
+            stats: document.getElementById("stats"),
+            searchInput: document.getElementById("searchInput"),
+            searchCount: document.getElementById("searchCount"),
+            playButton: document.getElementById("playButton"),
+            playIcon: document.getElementById("playIcon"),
+            playLabel: document.getElementById("playLabel"),
+            speedButton: document.getElementById("speedButton"),
+            fitButton: document.getElementById("fitButton"),
+            previousButton: document.getElementById("previousButton"),
+            nextButton: document.getElementById("nextButton"),
+            progressPanel: document.getElementById("progressPanel"),
+            progressRoute: document.getElementById("progressRoute"),
+            progressDistance: document.getElementById("progressDistance"),
+            progressTrack: document.getElementById("progressTrack"),
+            progressFill: document.getElementById("progressFill"),
+            filter: document.getElementById("countryFilter"),
+            filterToggle: document.getElementById("filterToggle"),
+            filterSelection: document.getElementById("filterSelection"),
+            filterMenu: document.getElementById("filterMenu"),
+            menuButton: document.getElementById("menuButton"),
+            drawer: document.getElementById("controlDrawer"),
+            labelsToggle: document.getElementById("labelsToggle"),
+            trailsToggle: document.getElementById("trailsToggle"),
+            atmosphereToggle: document.getElementById("atmosphereToggle"),
+            pulseToggle: document.getElementById("pulseToggle"),
+            liveRegion: document.getElementById("liveRegion")
+        };
+
+        const reduceMotion = window.matchMedia(
+            "(prefers-reduced-motion: reduce)"
+        ).matches;
+
+        /* ---------- Map ---------- */
+
+        const map = L.map("map", {
+            center: [25, 40],
+            zoom: 3,
+            minZoom: 2,
+            maxZoom: 18,
+            zoomControl: false,
+            attributionControl: true,
+            worldCopyJump: true,
+            preferCanvas: true
+        });
+
+        L.control.zoom({ position: "bottomright" }).addTo(map);
+
+        L.tileLayer(
+            "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+            {
+                maxZoom: 19,
+                subdomains: "abcd",
+                attribution:
+                    '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>'
+            }
+        ).addTo(map);
+
+        const canvasRenderer = L.canvas({ padding: 0.5 });
+        const markerLayer = L.featureGroup().addTo(map);
+        const trailLayer = L.layerGroup().addTo(map);
+
+        let trailsEnabled = true;
+
+        const locationIcon = L.divIcon({
+            className: "custom-div-icon",
+            html: `<span class="fancy-dot"></span>`,
+            iconSize: [16, 16],
+            iconAnchor: [8, 8],
+            popupAnchor: [0, -10]
+        });
+
+        const travellerIcon = L.divIcon({
+            className: "traveller-wrap",
+            html:
+                '<div class="traveller">' +
+                '<span class="traveller-tail"></span>' +
+                '<span class="traveller-core"></span>' +
+                '</div>',
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+        });
+
+        const markerEntries = locations.map(location => {
+            const marker = L.marker(location.coords, {
+                icon: locationIcon,
+                title: location.name,
+                keyboard: true,
+                riseOnHover: true
+            });
+
+            marker.bindPopup(
+                `<h3>${escapeHTML(location.name)}</h3>
+                <span class="popup-country">${escapeHTML(location.country)}</span>
+                <p>${escapeHTML(location.details)}</p>`,
+                {
+                    autoPan: true,
+                    closeButton: true,
+                    maxWidth: 280
+                }
+            );
+
+            marker.bindTooltip(escapeHTML(location.name), {
+                direction: "top",
+                className: "fancy-label",
+                offset: [0, -12],
+                opacity: 0.95
+            });
+
+            marker.addTo(markerLayer);
+
+            return { location, marker };
+        });
+
+        const countryCounts = locations.reduce((counts, location) => {
+            counts[location.country] =
+                (counts[location.country] || 0) + 1;
+            return counts;
+        }, {});
+
+        const countries = Object.keys(countryCounts).sort(
+            (first, second) => first.localeCompare(second)
+        );
+
+        elements.stats.textContent =
+            `${locations.length} places · ${countries.length} countries`;
+
+        /* ---------- General helpers ---------- */
+
+        function escapeHTML(value) {
+            return String(value)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function announce(message) {
+            elements.liveRegion.textContent = "";
+
+            requestAnimationFrame(() => {
+                elements.liveRegion.textContent = message;
+            });
+        }
+
+        function visibleEntries() {
+            return markerEntries.filter(entry =>
+                markerLayer.hasLayer(entry.marker)
+            );
+        }
+
+        function fitEntries(entries, animate = true) {
+            if (!entries.length) return;
+
+            const bounds = L.latLngBounds(
+                entries.map(entry => entry.location.coords)
+            );
+
+            if (!bounds.isValid()) return;
+
+            map.flyToBounds(bounds.pad(0.12), {
+                maxZoom: 8,
+                animate: animate && !reduceMotion,
+                duration: reduceMotion ? 0 : 0.8
+            });
+        }
+
+        /* ---------- Drawer and toggles ---------- */
+
+        function setDrawer(open) {
+            elements.controls.classList.toggle("drawer-open", open);
+            elements.drawer.hidden = !open;
+            elements.drawer.classList.toggle("drawer-visible", open);
+
+            elements.menuButton.setAttribute(
+                "aria-expanded",
+                String(open)
+            );
+
+            elements.menuButton.setAttribute(
+                "aria-label",
+                open ? "Close map options" : "Open map options"
+            );
+        }
+
+        elements.menuButton.addEventListener("click", event => {
+            event.stopPropagation();
+            setDrawer(elements.drawer.hidden);
+            closeCountryFilter();
+        });
+
+        function bindSwitch(button, onChange) {
+            button.addEventListener("click", () => {
+                const enabled =
+                    button.getAttribute("aria-checked") !== "true";
+
+                button.setAttribute("aria-checked", String(enabled));
+                onChange(enabled);
+            });
+        }
+
+        bindSwitch(elements.labelsToggle, enabled => {
+            document.body.classList.toggle("labels-hidden", !enabled);
+            announce(enabled ? "Place labels enabled." : "Place labels disabled.");
+        });
+
+        bindSwitch(elements.trailsToggle, enabled => {
+            trailsEnabled = enabled;
+
+            if (enabled && !map.hasLayer(trailLayer)) {
+                trailLayer.addTo(map);
+            } else if (!enabled && map.hasLayer(trailLayer)) {
+                map.removeLayer(trailLayer);
+            }
+
+            announce(
+                enabled
+                    ? "Journey trails enabled."
+                    : "Journey trails disabled."
+            );
+        });
+
+        bindSwitch(elements.atmosphereToggle, enabled => {
+            document.body.classList.toggle(
+                "atmosphere-hidden",
+                !enabled
+            );
+        });
+
+        bindSwitch(elements.pulseToggle, enabled => {
+            document.body.classList.toggle("pulse-hidden", !enabled);
+        });
+
+        /* ---------- Filtering ---------- */
+
+        let activeCountry = "";
+        let searchTimer = null;
+
+        function buildCountryFilter() {
+            const options = [
+                {
+                    value: "",
+                    label: "All countries",
+                    count: locations.length
+                },
+                ...countries.map(country => ({
+                    value: country,
+                    label: country,
+                    count: countryCounts[country]
+                }))
+            ];
+
+            options.forEach(option => {
+                const button = document.createElement("button");
+
+                button.type = "button";
+                button.className = "filter-option";
+                button.dataset.country = option.value;
+                button.setAttribute("role", "option");
+
+                button.innerHTML =
+                    `<span class="filter-dot" aria-hidden="true"></span>` +
+                    `<span>${escapeHTML(option.label)}</span>` +
+                    `<span class="filter-option-count">${option.count}</span>`;
+
+                button.addEventListener("click", () => {
+                    setCountry(option.value, true);
+                });
+
+                elements.filterMenu.appendChild(button);
+            });
+
+            updateCountryOptions();
+        }
+
+        function updateCountryOptions() {
+            elements.filterMenu
+                .querySelectorAll(".filter-option")
+                .forEach(option => {
+                    const selected =
+                        option.dataset.country === activeCountry;
+
+                    option.classList.toggle("active", selected);
+                    option.setAttribute(
+                        "aria-selected",
+                        String(selected)
+                    );
+                });
+
+            elements.filter.classList.toggle(
+                "has-selection",
+                Boolean(activeCountry)
+            );
+
+            elements.filterToggle.setAttribute(
+                "aria-label",
+                activeCountry
+                    ? `Country filter: ${activeCountry}`
+                    : "Filter by country"
+            );
+
+            elements.filterToggle.setAttribute(
+                "data-tooltip",
+                activeCountry || "Country filter"
+            );
+        }
+
+        function setCountry(country, fitMap) {
+            if (playback.playing) stopPlayback();
+
+            activeCountry = country || "";
+            updateCountryOptions();
+            applyFilters({ moveToResult: false });
+            closeCountryFilter();
+
+            const entries = visibleEntries();
+
+            if (fitMap && entries.length) {
+                fitEntries(entries);
+            }
+
+            announce(
+                activeCountry
+                    ? `${entries.length} locations shown in ${activeCountry}.`
+                    : `${entries.length} locations shown.`
+            );
+        }
+
+        function applyFilters({ moveToResult = true } = {}) {
+            const query =
+                elements.searchInput.value.trim().toLocaleLowerCase();
+
+            const matches = [];
+
+            markerEntries.forEach(entry => {
+                const { location, marker } = entry;
+
+                const matchesCountry =
+                    !activeCountry || location.country === activeCountry;
+
+                const matchesQuery =
+                    !query ||
+                    location.name.toLocaleLowerCase().includes(query) ||
+                    location.country.toLocaleLowerCase().includes(query) ||
+                    location.details.toLocaleLowerCase().includes(query);
+
+                const visible = matchesCountry && matchesQuery;
+
+                if (visible) {
+                    if (!markerLayer.hasLayer(marker)) {
+                        markerLayer.addLayer(marker);
+                    }
+
+                    matches.push(entry);
+                } else if (markerLayer.hasLayer(marker)) {
+                    markerLayer.removeLayer(marker);
+                }
+            });
+
+            elements.searchCount.textContent = String(matches.length);
+
+            if (moveToResult && query && matches.length) {
+                if (matches.length === 1) {
+                    map.flyTo(matches[0].location.coords, 8, {
+                        animate: !reduceMotion,
+                        duration: reduceMotion ? 0 : 0.65
+                    });
+
+                    matches[0].marker.openPopup();
+                } else {
+                    fitEntries(matches);
+                }
+            }
+
+            return matches;
+        }
+
+        function openCountryFilter() {
+            elements.filter.classList.add("open");
+            elements.filterToggle.setAttribute("aria-expanded", "true");
+            setDrawer(false);
+        }
+
+        function closeCountryFilter() {
+            elements.filter.classList.remove("open");
+            elements.filterToggle.setAttribute("aria-expanded", "false");
+        }
+
+        elements.filterToggle.addEventListener("click", event => {
+            event.stopPropagation();
+
+            if (elements.filter.classList.contains("open")) {
+                closeCountryFilter();
+            } else {
+                openCountryFilter();
+            }
+        });
+
+        elements.searchInput.addEventListener("input", () => {
+            clearTimeout(searchTimer);
+
+            searchTimer = setTimeout(() => {
+                if (playback.playing) stopPlayback();
+                applyFilters();
+            }, 180);
+        });
+
+        elements.fitButton.addEventListener("click", () => {
+            if (playback.playing) stopPlayback();
+
+            elements.searchInput.value = "";
+            activeCountry = "";
+            updateCountryOptions();
+            applyFilters({ moveToResult: false });
+            fitEntries(markerEntries);
+
+            setDrawer(false);
+
+            announce("Showing all locations.");
+        });
+
+        /* ---------- Geography ---------- */
+
+        function toRadians(value) {
+            return value * Math.PI / 180;
+        }
+
+        function toDegrees(value) {
+            return value * 180 / Math.PI;
+        }
+
+        function haversineKM(from, to) {
+            const earthRadius = 6371;
+            const latitudeOne = toRadians(from[0]);
+            const latitudeTwo = toRadians(to[0]);
+            const latitudeDifference = toRadians(to[0] - from[0]);
+            const longitudeDifference = toRadians(to[1] - from[1]);
+
+            const calculation =
+                Math.sin(latitudeDifference / 2) ** 2 +
+                Math.cos(latitudeOne) *
+                Math.cos(latitudeTwo) *
+                Math.sin(longitudeDifference / 2) ** 2;
+
+            return earthRadius * 2 * Math.atan2(
+                Math.sqrt(calculation),
+                Math.sqrt(1 - calculation)
+            );
+        }
+
+        function greatCircle(from, to, segments = 72) {
+            const latitudeOne = toRadians(from[0]);
+            const longitudeOne = toRadians(from[1]);
+            const latitudeTwo = toRadians(to[0]);
+            const longitudeTwo = toRadians(to[1]);
+
+            const sineLatitude =
+                Math.sin((latitudeOne - latitudeTwo) / 2);
+
+            const sineLongitude =
+                Math.sin((longitudeOne - longitudeTwo) / 2);
+
+            const angularDistance = 2 * Math.asin(
+                Math.min(
+                    1,
+                    Math.sqrt(
+                        sineLatitude * sineLatitude +
+                        Math.cos(latitudeOne) *
+                        Math.cos(latitudeTwo) *
+                        sineLongitude *
+                        sineLongitude
+                    )
+                )
+            );
+
+            if (
+                !Number.isFinite(angularDistance) ||
+                angularDistance < 0.000001
+            ) {
+                return [from, to];
+            }
+
+            const points = [];
+            const sineDistance = Math.sin(angularDistance);
+
+            for (let index = 0; index <= segments; index++) {
+                const fraction = index / segments;
+
+                const firstWeight =
+                    Math.sin((1 - fraction) * angularDistance) /
+                    sineDistance;
+
+                const secondWeight =
+                    Math.sin(fraction * angularDistance) /
+                    sineDistance;
+
+                const x =
+                    firstWeight *
+                    Math.cos(latitudeOne) *
+                    Math.cos(longitudeOne) +
+                    secondWeight *
+                    Math.cos(latitudeTwo) *
+                    Math.cos(longitudeTwo);
+
+                const y =
+                    firstWeight *
+                    Math.cos(latitudeOne) *
+                    Math.sin(longitudeOne) +
+                    secondWeight *
+                    Math.cos(latitudeTwo) *
+                    Math.sin(longitudeTwo);
+
+                const z =
+                    firstWeight * Math.sin(latitudeOne) +
+                    secondWeight * Math.sin(latitudeTwo);
+
+                points.push([
+                    toDegrees(Math.atan2(z, Math.sqrt(x * x + y * y))),
+                    toDegrees(Math.atan2(y, x))
+                ]);
+            }
+
+            return points;
+        }
+
+        function pointAlongPath(points, progress) {
+            const scaled = progress * (points.length - 1);
+            const firstIndex = Math.floor(scaled);
+            const secondIndex = Math.min(
+                firstIndex + 1,
+                points.length - 1
+            );
+
+            const fraction = scaled - firstIndex;
+
+            const first = points[firstIndex];
+            const second = points[secondIndex];
+
+            return [
+                first[0] + (second[0] - first[0]) * fraction,
+                first[1] + (second[1] - first[1]) * fraction
+            ];
+        }
+
+        function easeInOutCubic(progress) {
+            return progress < 0.5
+                ? 4 * progress * progress * progress
+                : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+        }
+
+        /* ---------- Playback ---------- */
+
+        const playback = {
+            playing: false,
+            index: 0,
+            speeds: [0.5, 1, 1.5, 2],
+            speedIndex: 1,
+            timer: null,
+            cameraTimer: null,
+            cameraHandler: null,
+            animationFrame: null,
+            traveller: null,
+            activeRoute: null,
+            session: 0
+        };
+
+        function playbackSpeed() {
+            return playback.speeds[playback.speedIndex];
+        }
+
+        function setPlaybackInterface(active) {
+            document.body.classList.toggle("is-playing", active);
+            elements.progressPanel.classList.toggle("visible", active);
+            elements.playButton.classList.toggle("stop-state", active);
+
+            elements.playButton.setAttribute(
+                "aria-label",
+                active ? "Stop journey" : "Play journey"
+            );
+
+            elements.playButton.setAttribute(
+                "data-tooltip",
+                active ? "Stop journey" : "Play journey"
+            );
+
+            elements.playIcon.textContent = active ? "■" : "▶";
+            elements.playLabel.textContent = active ? "Stop" : "Play";
+
+            if (active) {
+                setDrawer(false);
+                closeCountryFilter();
+            }
+        }
+
+        function updateProgress(index, from, to, distance) {
+            const percentage =
+                locations.length <= 1
+                    ? 100
+                    : (index / (locations.length - 1)) * 100;
+
+            elements.progressFill.style.width =
+                `${Math.max(0, Math.min(100, percentage))}%`;
+
+            elements.progressTrack.setAttribute(
+                "aria-valuenow",
+                String(Math.round(percentage))
+            );
+
+            if (from) {
+                elements.progressRoute.innerHTML =
+                    `${index + 1}/${locations.length} · ` +
+                    `${escapeHTML(from.name)} ➔ ` +
+                    `<strong>${escapeHTML(to.name)}</strong>`;
+            } else {
+                elements.progressRoute.innerHTML =
+                    `1/${locations.length} · ` +
+                    `<strong>${escapeHTML(to.name)}</strong>`;
+            }
+
+            elements.progressDistance.textContent =
+                distance
+                    ? `${Math.round(distance).toLocaleString()} km`
+                    : "";
+        }
+
+        function clearCameraWait() {
+            if (playback.cameraHandler) {
+                map.off("moveend", playback.cameraHandler);
+                playback.cameraHandler = null;
+            }
+
+            clearTimeout(playback.cameraTimer);
+            playback.cameraTimer = null;
+        }
+
+        function waitForCamera(action, durationMilliseconds, callback) {
+            clearCameraWait();
+
+            let finished = false;
+            const session = playback.session;
+
+            function finish() {
+                if (finished) return;
+
+                finished = true;
+                clearCameraWait();
+
+                if (
+                    playback.playing &&
+                    session === playback.session
+                ) {
+                    callback();
+                }
+            }
+
+            playback.cameraHandler = finish;
+            map.once("moveend", finish);
+
+            playback.cameraTimer = setTimeout(
+                finish,
+                durationMilliseconds + 220
+            );
+
+            action();
+        }
+
+        function removeTemporaryLayers() {
+            if (playback.traveller) {
+                map.removeLayer(playback.traveller);
+                playback.traveller = null;
+            }
+
+            if (playback.activeRoute) {
+                map.removeLayer(playback.activeRoute);
+                playback.activeRoute = null;
+            }
+        }
+
+        function stopPlayback({ completed = false } = {}) {
+            playback.playing = false;
+            playback.session++;
+
+            clearTimeout(playback.timer);
+            playback.timer = null;
+
+            clearCameraWait();
+
+            if (playback.animationFrame !== null) {
+                cancelAnimationFrame(playback.animationFrame);
+                playback.animationFrame = null;
+            }
+
+            removeTemporaryLayers();
+            map.stop();
+            setPlaybackInterface(false);
+
+            if (!completed) {
+                map.closePopup();
+            }
+        }
+
+        function showArrival(entry, callback) {
+            if (!playback.playing) return;
+
+            const markerElement = entry.marker.getElement();
+
+            if (markerElement) {
+                markerElement.classList.remove("marker-arrive");
+                void markerElement.offsetWidth;
+                markerElement.classList.add("marker-arrive");
+
+                setTimeout(() => {
+                    markerElement.classList.remove("marker-arrive");
+                }, 720);
+            }
+
+            entry.marker.openPopup();
+            announce(`Arrived at ${entry.location.name}.`);
+
+            playback.timer = setTimeout(
+                callback,
+                (reduceMotion ? 300 : 800) / playbackSpeed()
+            );
+        }
+
+        function updateTravellerRotation(
+            travellerElement,
+            previousPosition,
+            currentPosition
+        ) {
+            if (!travellerElement || !previousPosition) return;
+
+            const previousPoint =
+                map.latLngToLayerPoint(previousPosition);
+
+            const currentPoint =
+                map.latLngToLayerPoint(currentPosition);
+
+            const horizontal = currentPoint.x - previousPoint.x;
+            const vertical = currentPoint.y - previousPoint.y;
+
+            if (
+                Math.abs(horizontal) < 0.01 &&
+                Math.abs(vertical) < 0.01
+            ) {
+                return;
+            }
+
+            const angle =
+                Math.atan2(vertical, horizontal) * 180 / Math.PI;
+
+            const tail =
+                travellerElement.querySelector(".traveller-tail");
+
+            if (tail) {
+                tail.style.transform = `rotate(${angle}deg)`;
+            }
+        }
+
+        function runVisibleFlight(from, to, callback) {
+            if (!playback.playing) return;
+
+            const session = playback.session;
+            const route = greatCircle(from, to, 72);
+
+            playback.activeRoute = L.polyline(route, {
+                renderer: canvasRenderer,
+                color: "#d4af37",
+                weight: 2,
+                opacity: 0.42,
+                dashArray: "3 8",
+                lineCap: "round",
+                interactive: false
+            }).addTo(map);
+
+            playback.traveller = L.marker(from, {
+                icon: travellerIcon,
+                interactive: false,
+                keyboard: false,
+                zIndexOffset: 3000
+            }).addTo(map);
+
+            const duration =
+                (reduceMotion ? 220 : 2600) / playbackSpeed();
+
+            let startTime = null;
+            let previousPosition = from;
+            let travellerElement = null;
+
+            function frame(timestamp) {
+                if (
+                    !playback.playing ||
+                    session !== playback.session
+                ) {
+                    return;
+                }
+
+                if (startTime === null) {
+                    startTime = timestamp;
+                }
+
+                const elapsed = timestamp - startTime;
+                const rawProgress = Math.min(1, elapsed / duration);
+                const easedProgress = easeInOutCubic(rawProgress);
+
+                const position = pointAlongPath(
+                    route,
+                    easedProgress
+                );
+
+                playback.traveller.setLatLng(position);
+
+                if (!travellerElement) {
+                    travellerElement = playback.traveller.getElement();
+                }
+
+                updateTravellerRotation(
+                    travellerElement,
+                    previousPosition,
+                    position
+                );
+
+                previousPosition = position;
+
+                if (rawProgress < 1) {
+                    playback.animationFrame =
+                        requestAnimationFrame(frame);
+
+                    return;
+                }
+
+                playback.animationFrame = null;
+
+                if (playback.traveller) {
+                    map.removeLayer(playback.traveller);
+                    playback.traveller = null;
+                }
+
+                if (playback.activeRoute) {
+                    playback.activeRoute.setStyle({
+                        opacity: 0.2,
+                        weight: 1.5,
+                        dashArray: "2 9"
+                    });
+
+                    trailLayer.addLayer(playback.activeRoute);
+                    playback.activeRoute = null;
+                }
+
+                callback();
+            }
+
+            playback.animationFrame = requestAnimationFrame(frame);
+        }
+
+        function animateLeg(from, to, callback) {
+            if (!playback.playing) return;
+
+            const route = greatCircle(from, to, 36);
+            const bounds = L.latLngBounds(route);
+
+            const cameraSeconds =
+                reduceMotion ? 0 : 0.7 / playbackSpeed();
+
+            waitForCamera(
+                () => {
+                    map.flyToBounds(bounds, {
+                        paddingTopLeft: [90, 145],
+                        paddingBottomRight: [90, 145],
+                        maxZoom: 7,
+                        animate: !reduceMotion,
+                        duration: cameraSeconds,
+                        easeLinearity: 0.3
+                    });
+                },
+                cameraSeconds * 1000,
+                () => runVisibleFlight(from, to, callback)
+            );
+        }
+
+        function playNextLeg() {
+            if (!playback.playing) return;
+
+            if (playback.index >= markerEntries.length) {
+                elements.progressFill.style.width = "100%";
+                elements.progressTrack.setAttribute("aria-valuenow", "100");
+
+                playback.timer = setTimeout(() => {
+                    stopPlayback({ completed: true });
+                    announce("Journey completed.");
+                }, 650);
+
+                return;
+                }
+
+            const current = markerEntries[playback.index];
+
+            const previous =
+                playback.index > 0
+                    ? markerEntries[playback.index - 1]
+                    : null;
+
+            const distance = previous
+                ? haversineKM(
+                    previous.location.coords,
+                    current.location.coords
+                )
+                : 0;
+
+            updateProgress(
+                playback.index,
+                previous ? previous.location : null,
+                current.location,
+                distance
+            );
+
+            function arrive() {
+                showArrival(current, () => {
+                    playback.index++;
+                    playNextLeg();
+                });
+            }
+
+            if (!previous) {
+                const duration =
+                    reduceMotion ? 0 : 0.8 / playbackSpeed();
+
+                waitForCamera(
+                    () => {
+                        map.flyTo(current.location.coords, 7, {
+                            animate: !reduceMotion,
+                            duration,
+                            easeLinearity: 0.3
+                        });
+                    },
+                    duration * 1000,
+                    arrive
+                );
+
+                return;
+            }
+
+            animateLeg(
+                previous.location.coords,
+                current.location.coords,
+                arrive
+            );
+        }
+
+        function resetFiltersWithoutMovingMap() {
+            elements.searchInput.value = "";
+            activeCountry = "";
+            updateCountryOptions();
+            applyFilters({ moveToResult: false });
+            closeCountryFilter();
+        }
+
+        function startPlayback(startIndex = 0) {
+            stopPlayback();
+
+            resetFiltersWithoutMovingMap();
+            map.closePopup();
+            map.stop();
+            trailLayer.clearLayers();
+
+            playback.session++;
+            playback.playing = true;
+
+            playback.index = Math.max(
+                0,
+                Math.min(startIndex, markerEntries.length - 1)
+            );
+
+            setPlaybackInterface(true);
+            playNextLeg();
+        }
+
+        elements.playButton.addEventListener("click", () => {
+            if (playback.playing) {
+                stopPlayback();
+            } else {
+                startPlayback(0);
+            }
+        });
+
+        elements.speedButton.addEventListener("click", () => {
+            playback.speedIndex =
+                (playback.speedIndex + 1) %
+                playback.speeds.length;
+
+            const currentSpeed = playbackSpeed();
+
+            elements.speedButton.querySelector(
+                ".speed-value"
+            ).textContent = `${currentSpeed}x`;
+
+            elements.speedButton.setAttribute(
+                "aria-label",
+                `Playback speed: ${currentSpeed}x`
+            );
+
+            announce(`Playback speed ${currentSpeed} times.`);
+        });
+
+        function showLocationAtIndex(index) {
+            if (playback.playing) stopPlayback();
+
+            resetFiltersWithoutMovingMap();
+
+            playback.index =
+                (index + markerEntries.length) %
+                markerEntries.length;
+
+            const entry = markerEntries[playback.index];
+
+            map.flyTo(entry.location.coords, 8, {
+                animate: !reduceMotion,
+                duration: reduceMotion ? 0 : 0.65
+            });
+
+            entry.marker.openPopup();
+            announce(entry.location.name);
+        }
+
+        elements.previousButton.addEventListener("click", () => {
+            showLocationAtIndex(playback.index - 1);
+        });
+
+        elements.nextButton.addEventListener("click", () => {
+            showLocationAtIndex(playback.index + 1);
+        });
+
+        /* ---------- Close interfaces ---------- */
+
+        document.addEventListener("click", event => {
+            if (!elements.filter.contains(event.target)) {
+                closeCountryFilter();
+            }
+
+            if (
+                !elements.controls.contains(event.target) &&
+                !elements.drawer.hidden
+            ) {
+                setDrawer(false);
+            }
+        });
+
+        document.addEventListener("keydown", event => {
+            if (event.key !== "Escape") return;
+
+            if (!elements.drawer.hidden) {
+                setDrawer(false);
+                return;
+            }
+
+            if (elements.filter.classList.contains("open")) {
+                closeCountryFilter();
+                return;
+            }
+
+            if (playback.playing) {
+                stopPlayback();
+            }
+        });
+
+        map.on("dragstart", () => {
+            if (playback.playing) {
+                stopPlayback();
+            }
+        });
+
+        /* ---------- Initialization ---------- */
+
+        buildCountryFilter();
+        applyFilters({ moveToResult: false });
+
+        map.whenReady(() => {
+            setTimeout(() => {
+                map.invalidateSize(false);
+                fitEntries(markerEntries, false);
+            }, 50);
+        });
+    </script>
+</body>
+</html>
