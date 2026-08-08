@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TTET's interactive journey log — a map of places visited across Asia, Europe and beyond.">
+    <meta name="theme-color" content="#121417">
+    <title>TTET's Footprint — Interactive Journey Log</title>
+    
+    <!-- Leaflet.js CSS for Map Functionality -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    
+    <!-- Google Fonts for sophisticated typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Montserrat:wght@200;300;500&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-dark: #121417; 
+            --primary-accent: #d4af37; 
+            --label-bg: rgba(18, 20, 23, 0.85); 
+            --text-light: #f1f1f1;
+            --text-muted: #a0a0a0;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            font-family: 'Montserrat', sans-serif;
+            overflow: hidden; 
+        }
+        
+        #map {
+            height: 100vh;
+            width: 100%;
+            background-color: var(--bg-dark); 
+        }
+
+        /* --- FANCY MINIMALIST OVERLAY --- */
+        .title-overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000; 
+            padding: 15px 25px;
+            pointer-events: none; 
+        }
+        
+        .title-overlay h1 {
+            margin: 0;
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 2.8rem;
+            color: var(--primary-accent);
+            letter-spacing: 1px;
+            line-height: 1.1;
+            text-transform: lowercase; 
+        }
+        
+        .title-overlay p {
+            margin: 8px 0 0 5px;
+            font-size: 0.75rem;
+            font-weight: 300;
+            color: var(--text-muted);
+            letter-spacing: 2.5px;
+            text-transform: uppercase;
+        }
+
+        /* --- REFINED POPUPS --- */
+        .leaflet-popup-content-wrapper {
+            background-color: #1a1d21; 
+            color: var(--text-light);
+            border-radius: 8px;
+            padding: 8px;
+            border: 1px solid rgba(212, 175, 55, 0.3); 
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+        }
+        
+        .leaflet-popup-content {
+            margin: 10px 14px;
+            font-weight: 300;
+            line-height: 1.6;
+        }
+
+        .leaflet-popup-content h3 {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 1.5rem;
+            color: var(--primary-accent);
+            margin: 0 0 6px 0;
+            border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+            padding-bottom: 4px;
+        }
+        
+        .leaflet-popup-content p {
+            font-size: 0.8rem;
+            color: var(--text-light);
+            margin: 0;
+        }
+
+        .leaflet-popup-tip {
+            background-color: #1a1d21;
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            border-top: none;
+            border-left: none;
+        }
+
+        .leaflet-container a.leaflet-popup-close-button {
+            color: #777;
+            padding: 10px 8px 0 0;
+        }
+        .leaflet-container a.leaflet-popup-close-button:hover {
+            color: var(--primary-accent);
+        }
+
+        /* --- FANCY DIVICON PIN (Fancy Gold Dot) --- */
+        .fancy-dot {
+            width: 12px;
+            height: 12px;
+            background-color: var(--primary-accent);
+            border: 2px solid var(--text-light);
+            border-radius: 50%;
+            display: block;
+            box-shadow: 0 0 10px rgba(212, 175, 55, 0.8);
+            position: absolute;
+            transform: translate(-50%, -50%); 
+        }
+        
+        .fancy-dot::after {
+            content: "";
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 100%; height: 100%;
+            background-color: var(--primary-accent);
+            border-radius: 50%;
+            transform: translate(-50%, -50%) scale(1);
+            animation: pulse 1.8s infinite;
+            opacity: 0.6;
+            z-index: -1;
+        }
+        @keyframes pulse {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 0.6; }
+            100% { transform: translate(-50%, -50%) scale(3.5); opacity: 0; }
+        }
+
+        /* --- FANCY PINNED NAME PREVIEW (PERMANENT TOOLTIP) --- */
+        .leaflet-tooltip-pane {
+            z-index: 999; 
+        }
+        
+        .leaflet-tooltip.fancy-label {
+            background-color: var(--label-bg);
+            color: var(--text-light);
+            border: 1px solid rgba(212, 175, 55, 0.4);
+            border-radius: 3px;
+            padding: 3px 6px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(2px); 
+            
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 300;
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            
+            opacity: 0.85;
+            transition: opacity 0.3s ease;
+        }
+        
+        .leaflet-tooltip-top.fancy-label::before {
+            border-top-color: rgba(212, 175, 55, 0.4);
+        }
+        
+        .leaflet-tooltip.fancy-label.faded {
+            opacity: 0.1; 
+        }
+
+        .leaflet-control-attribution {
+            background: rgba(18, 20, 23, 0.72) !important;
+            color: #a0a0a0;
+            font-size: 9px;
+            backdrop-filter: blur(2px);
+        }
+
+        .leaflet-control-attribution a {
+            color: #c9b15a;
+        }
+
+        .noscript-message {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            background: var(--bg-dark);
+            color: var(--text-light);
+            text-align: center;
+        }
+
+        @media (max-width: 600px) {
+            .title-overlay {
+                top: 10px;
+                left: 10px;
+                padding: 10px 14px;
+            }
+
+            .title-overlay h1 {
+                font-size: 2rem;
+            }
+
+            .title-overlay p {
+                margin-top: 5px;
+                margin-left: 3px;
+                font-size: 0.62rem;
+                letter-spacing: 1.8px;
+            }
+
+            .leaflet-popup-content {
+                margin: 8px 10px;
+            }
+
+            .leaflet-popup-content h3 {
+                font-size: 1.3rem;
+            }
+
+            .leaflet-popup-content p {
+                font-size: 0.75rem;
+            }
+
+            .leaflet-tooltip.fancy-label {
+                font-size: 8px;
+                padding: 2px 5px;
+                letter-spacing: 0.9px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .fancy-dot::after {
+                animation: none;
+            }
+
+            .leaflet-tooltip.fancy-label {
+                transition: none;
+            }
+        }
+
+    </style>
+</head>
+<body>
+
+    <noscript>
+        <div class="noscript-message">
+            JavaScript is required to view TTET's Footprint.
+        </div>
+    </noscript>
+
+    <header class="title-overlay" aria-label="TTET's Footprint">
+        <h1>ttet's<br>footprint</h1>
+        <p>Interactive Journey Log</p>
+    </header>
+
+    <!-- Map Container -->
+    <div id="map"></div>
+
+    <!-- Leaflet.js Library -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <script>
+        var map = L.map('map', {
+            center: [25, 40], // Centered between Europe and SE Asia
+            zoom: 3,
+            zoomControl: false, 
+            attributionControl: true 
+        });
+        
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>'
+        }).addTo(map);
+
+        var locations = [
+            // PREVIOUS BASE & ASIA
+            { name: "Penang", country: "Malaysia", coords: [5.2971, 100.2768], details: "Base operations / Bayan Lepas." },
+            { name: "Kuala Lumpur", country: "Malaysia", coords: [3.1390, 101.6869], details: "Frequent transit hub." },
+            { name: "Bali", country: "Indonesia", coords: [-8.4095, 115.1889], details: "July 2026. Inland exploration." },
+            { name: "Bugis", country: "Singapore", coords: [1.3000, 103.8550], details: "April 2026. Stayed at Capsule@Hive Bugis." },
+            { name: "Hong Kong", country: "Hong Kong", coords: [22.3193, 114.1694], details: "Timeline record." },
+            
+            // JAPAN
+            { name: "Tokyo", country: "Japan", coords: [35.6664, 139.8732], details: "March 2026. Stayed at Grand Hostel LDK Tokyo Nishikasai." },
+            { name: "Osaka", country: "Japan", coords: [34.6937, 135.5023], details: "Travel segment exploring the nation's kitchen." },
+            { name: "Mount Fuji", country: "Japan", coords: [35.3606, 138.7274], details: "June 2026. 5th Station exploration." },
+            { name: "Uji", country: "Japan", coords: [34.8893, 135.8016], details: "Historic city travel segment." },
+            { name: "Nara", country: "Japan", coords: [34.6851, 135.8048], details: "Historic city travel segment." },
+            { name: "Kyoto", country: "Japan", coords: [35.0116, 135.7681], details: "Historic city travel segment." },
+            
+            // THAILAND
+            { name: "Sadao", country: "Thailand", coords: [6.6353, 100.4223], details: "Timeline record." },
+            { name: "Kho Hong", country: "Thailand", coords: [7.0197, 100.5057], details: "Timeline record." },
+            { name: "Hat Yai", country: "Thailand", coords: [7.0096, 100.4735], details: "Timeline record." },
+            { name: "Samnak Kham", country: "Thailand", coords: [6.5298, 100.4184], details: "Timeline record." },
+            { name: "Bangkok", country: "Thailand", coords: [13.7563, 100.5018], details: "Timeline record." },
+            { name: "Khuan Lang", country: "Thailand", coords: [6.9934, 100.4357], details: "Timeline record." },
+            { name: "Khlong Hae", country: "Thailand", coords: [7.0422, 100.4764], details: "Timeline record." },
+            { name: "Songkhla", country: "Thailand", coords: [7.1898, 100.5954], details: "Timeline record." },
+            { name: "Prakop", country: "Thailand", coords: [6.6430, 100.7490], details: "Timeline record." },
+            { name: "Betong", country: "Thailand", coords: [5.7725, 101.0713], details: "Timeline record." },
+            { name: "Tano Maero", country: "Thailand", coords: [5.8203, 101.0267], details: "Timeline record." },
+            { name: "Aiyoeweng", country: "Thailand", coords: [5.9754, 101.1764], details: "Timeline record." },
+            { name: "Ao Nang", country: "Thailand", coords: [8.0319, 98.8239], details: "Timeline record." },
+            { name: "Khao Kop", country: "Thailand", coords: [7.7121, 99.5750], details: "Timeline record." },
+            { name: "Tha Chang", country: "Thailand", coords: [9.2638, 99.2081], details: "Timeline record." },
+            { name: "Phatong", country: "Thailand", coords: [7.0067, 100.3546], details: "Timeline record." },
+            { name: "Krabi", country: "Thailand", coords: [8.0863, 98.9063], details: "Travel segment." },
+            { name: "Phuket", country: "Thailand", coords: [7.8804, 98.3923], details: "Travel segment." },
+            { name: "Chiang Mai", country: "Thailand", coords: [18.7883, 98.9853], details: "Travel segment." },
+
+            // VIETNAM
+            { name: "Ho Chi Minh City", country: "Vietnam", coords: [10.8231, 106.6297], details: "Travel segment." },
+            { name: "Hanoi", country: "Vietnam", coords: [21.0285, 105.8542], details: "Travel segment." },
+
+            // UAE
+            { name: "Dubai", country: "United Arab Emirates", coords: [25.2048, 55.2708], details: "Travel segment." },
+
+            // CHINA & TAIWAN
+            { name: "Beijing", country: "China", coords: [39.9042, 116.4074], details: "Autumn 2025 exploration segment." },
+            { name: "Chengdu", country: "China", coords: [30.6586, 104.0649], details: "Autumn 2025 exploration segment." },
+            { name: "Taipei", country: "Taiwan", coords: [25.0330, 121.5654], details: "Autumn 2025 exploration segment." },
+            { name: "Chongqing", country: "China", coords: [29.5627, 106.5528], details: "Timeline record." },
+            { name: "Xiamen", country: "China", coords: [24.4798, 118.0894], details: "Timeline record." },
+            { name: "Leshan", country: "China", coords: [29.5594, 103.7610], details: "Timeline record." },
+            { name: "Xianyang", country: "China", coords: [34.3312, 108.7082], details: "Timeline record." },
+            { name: "Xi'An", country: "China", coords: [34.3416, 108.9398], details: "Timeline record." },
+            { name: "Yan'An", country: "China", coords: [36.5957, 109.4883], details: "Timeline record." },
+            { name: "Tongchuan", country: "China", coords: [34.8967, 108.9448], details: "Timeline record." },
+            { name: "Weinan", country: "China", coords: [34.4988, 109.5085], details: "Timeline record." },
+            { name: "Baoji", country: "China", coords: [34.3621, 107.1437], details: "Timeline record." },
+
+            // UK & IRELAND
+            { name: "London", country: "UK", coords: [51.5074, -0.1278], details: "Timeline record." },
+            { name: "Edinburgh", country: "UK", coords: [55.9533, -3.1883], details: "Timeline record." },
+            { name: "Pitlochry", country: "UK", coords: [56.7044, -3.7297], details: "Timeline record." },
+            { name: "Aberarder", country: "UK", coords: [57.2790, -4.2690], details: "Timeline record." },
+            { name: "Glenfinnan", country: "UK", coords: [56.8718, -5.4371], details: "Timeline record." },
+            { name: "Fort William", country: "UK", coords: [56.8198, -5.1052], details: "Timeline record." },
+            { name: "Dundee", country: "UK", coords: [56.4620, -2.9707], details: "Timeline record." },
+            { name: "Aberdeen", country: "UK", coords: [57.1497, -2.0943], details: "Timeline record." },
+            { name: "Elgin", country: "UK", coords: [57.6496, -3.3175], details: "Timeline record." },
+            { name: "Inverness", country: "UK", coords: [57.4778, -4.2247], details: "Timeline record." },
+            { name: "Stonehaven", country: "UK", coords: [56.9634, -2.2115], details: "Timeline record." },
+            { name: "Warrington", country: "UK", coords: [53.3900, -2.5970], details: "Timeline record." },
+            { name: "Chester", country: "UK", coords: [53.1934, -2.8931], details: "Timeline record." },
+            { name: "Llandudno", country: "UK", coords: [53.3239, -3.8276], details: "Timeline record." },
+            { name: "Conwy", country: "UK", coords: [53.2829, -3.8295], details: "Timeline record." },
+            { name: "Llandudno Junction", country: "UK", coords: [53.2878, -3.8052], details: "Timeline record." },
+            { name: "Currie", country: "UK", coords: [55.8953, -3.3134], details: "Timeline record." },
+            { name: "North Berwick", country: "UK", coords: [56.0592, -2.7214], details: "Timeline record." },
+            { name: "Sheffield", country: "UK", coords: [53.3811, -1.4701], details: "Timeline record." },
+            { name: "Crewe", country: "UK", coords: [53.0975, -2.4396], details: "Timeline record." },
+            { name: "Manchester", country: "UK", coords: [53.4808, -2.2426], details: "Timeline record." },
+            { name: "Dunbar", country: "UK", coords: [55.9996, -2.5152], details: "Timeline record." },
+            { name: "Ingliston", country: "UK", coords: [55.9423, -3.3644], details: "Timeline record." },
+            { name: "Horley", country: "UK", coords: [51.1712, -0.1691], details: "Timeline record." },
+            { name: "Loanhead", country: "UK", coords: [55.8809, -3.1539], details: "Timeline record." },
+            { name: "Glasgow", country: "UK", coords: [55.8642, -4.2518], details: "Timeline record." },
+            { name: "Leeds", country: "UK", coords: [53.8008, -1.5491], details: "Timeline record." },
+            { name: "Newcastle upon Tyne", country: "UK", coords: [54.9783, -1.6178], details: "Timeline record." },
+            { name: "Bristol", country: "UK", coords: [51.4545, -2.5879], details: "Timeline record." },
+            { name: "Bellshill", country: "UK", coords: [55.8202, -4.0252], details: "Timeline record." },
+            { name: "Dublin", country: "Ireland", coords: [53.3498, -6.2603], details: "Timeline record." },
+            { name: "Bray", country: "Ireland", coords: [53.2006, -6.1111], details: "Timeline record." },
+            { name: "Cork", country: "Ireland", coords: [51.8985, -8.4756], details: "Timeline record." },
+            { name: "Cobh", country: "Ireland", coords: [51.8503, -8.2943], details: "Timeline record." },
+
+            // CONTINENTAL EUROPE
+            { name: "Lisbon", country: "Portugal", coords: [38.7223, -9.1393], details: "European segment exploration." },
+            { name: "Barcelona", country: "Spain", coords: [41.3851, 2.1734], details: "Timeline record." },
+            { name: "Budapest", country: "Hungary", coords: [47.4979, 19.0402], details: "European segment exploration." },
+            { name: "Schwechat", country: "Austria", coords: [48.1396, 16.4717], details: "Timeline record." },
+            { name: "Vienna", country: "Austria", coords: [48.2082, 16.3738], details: "Timeline record." },
+            { name: "Prague", country: "Czechia", coords: [50.0755, 14.4378], details: "Timeline record." },
+            { name: "Utrecht", country: "Netherlands", coords: [52.0907, 5.1214], details: "Timeline record." },
+            { name: "Amsterdam", country: "Netherlands", coords: [52.3676, 4.9041], details: "Timeline record." },
+            { name: "Koog aan de Zaan", country: "Netherlands", coords: [52.4608, 4.8081], details: "Timeline record." },
+            { name: "Zaandam", country: "Netherlands", coords: [52.4420, 4.8292], details: "Timeline record." },
+            { name: "Vatican City", country: "Vatican City", coords: [41.9029, 12.4534], details: "Timeline record." },
+            { name: "Switzerland", country: "Switzerland", coords: [46.8182, 8.2275], details: "Timeline record." },
+            
+            // GERMANY
+            { name: "Düsseldorf", country: "Germany", coords: [51.2277, 6.7735], details: "European segment exploration." },
+            { name: "Füssen", country: "Germany", coords: [47.5696, 10.7004], details: "Timeline record." },
+            { name: "Schwangau", country: "Germany", coords: [47.5772, 10.7334], details: "Timeline record." },
+            { name: "Kempten", country: "Germany", coords: [47.7286, 10.3160], details: "Timeline record." },
+            { name: "Mainz", country: "Germany", coords: [49.9929, 8.2473], details: "Timeline record." },
+            { name: "Koblenz", country: "Germany", coords: [50.3569, 7.5940], details: "Timeline record." },
+            { name: "Kevelaer", country: "Germany", coords: [51.5828, 6.2443], details: "Timeline record." },
+            { name: "Weeze", country: "Germany", coords: [51.6284, 6.1963], details: "Timeline record." },
+            { name: "Cologne", country: "Germany", coords: [50.9375, 6.9603], details: "Timeline record." },
+            { name: "Frankfurt am Main", country: "Germany", coords: [50.1109, 8.6821], details: "Timeline record." },
+            { name: "Munich", country: "Germany", coords: [48.1351, 11.5820], details: "Timeline record." },
+            { name: "Wangen im Allgäu", country: "Germany", coords: [47.6865, 9.8335], details: "Timeline record." },
+            { name: "Ravensburg", country: "Germany", coords: [47.7811, 9.6125], details: "Timeline record." },
+            { name: "Weingarten", country: "Germany", coords: [47.8080, 9.6423], details: "Timeline record." },
+            { name: "Ulm", country: "Germany", coords: [48.3984, 9.9916], details: "Timeline record." },
+            { name: "Friedrichshafen", country: "Germany", coords: [47.6536, 9.4739], details: "Timeline record." },
+            { name: "Lindau", country: "Germany", coords: [47.5458, 9.6836], details: "Timeline record." },
+            { name: "Memmingen", country: "Germany", coords: [47.9837, 10.1802], details: "Timeline record." },
+            
+            // ITALY
+            { name: "Bologna", country: "Italy", coords: [44.4949, 11.3426], details: "Timeline record." },
+            { name: "Venice", country: "Italy", coords: [45.4408, 12.3155], details: "Timeline record." },
+            { name: "Milan", country: "Italy", coords: [45.4642, 9.1900], details: "Timeline record." },
+            { name: "Perledo", country: "Italy", coords: [46.0160, 9.3039], details: "Timeline record." },
+            { name: "Varenna", country: "Italy", coords: [46.0118, 9.2841], details: "Timeline record." },
+            { name: "Bellagio", country: "Italy", coords: [45.9800, 9.2562], details: "Timeline record." },
+            { name: "Lenno", country: "Italy", coords: [45.9683, 9.1932], details: "Timeline record." },
+            { name: "Menaggio", country: "Italy", coords: [46.0223, 9.2393], details: "Timeline record." },
+            { name: "Rome", country: "Italy", coords: [41.9028, 12.4964], details: "Timeline record." },
+            { name: "Salerno", country: "Italy", coords: [40.6824, 14.7681], details: "Timeline record." },
+            { name: "Amalfi", country: "Italy", coords: [40.6340, 14.6027], details: "Timeline record." },
+            { name: "Pianillo", country: "Italy", coords: [40.6385, 14.5510], details: "Timeline record." },
+            { name: "Sorrento", country: "Italy", coords: [40.6263, 14.3758], details: "Timeline record." },
+            { name: "Naples", country: "Italy", coords: [40.8518, 14.2681], details: "Timeline record." }
+        ];
+
+        var fancyDotIcon = L.divIcon({
+            className: 'custom-div-icon',
+            html: '<div class="fancy-dot"></div>',
+            iconSize: [12, 12],
+            iconAnchor: [6, 6], 
+            popupAnchor: [0, -10] 
+        });
+
+        var tooltips = [];
+
+        locations.forEach(function(loc) {
+            var marker = L.marker(loc.coords, { icon: fancyDotIcon }).addTo(map);
+            
+            var escapeHtml = function(value) {
+                return String(value)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            };
+
+            var popupContent = "<h3>" + escapeHtml(loc.name) + ", " + escapeHtml(loc.country) + "</h3>" +
+                               "<p>" + escapeHtml(loc.details) + "</p>";
+                               
+            marker.bindPopup(popupContent);
+            
+            var label = loc.name;
+            var tooltip = marker.bindTooltip(label, {
+                permanent: true,
+                direction: 'top',
+                className: 'fancy-label', 
+                offset: [0, -14] 
+            });
+            
+            tooltips.push(tooltip.getTooltip());
+        });
+
+        map.on('zoomstart movestart', function() {
+            tooltips.forEach(function(t) {
+                if (t.getElement()) t.getElement().classList.add('faded');
+            });
+        });
+        
+        map.on('zoomend moveend', function() {
+            tooltips.forEach(function(t) {
+                if (t.getElement()) t.getElement().classList.remove('faded');
+            });
+        });
+
+    </script>
+</body>
+</html>
