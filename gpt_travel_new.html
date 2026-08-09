@@ -115,9 +115,11 @@
         .title-overlay {
             position: fixed;
             top: 23px;
-            left: 25px;
+            left: 50%;
             z-index: 1000;
             pointer-events: none;
+            transform: translateX(-50%);
+            text-align: center;
             animation: reveal 600ms ease both;
         }
 
@@ -145,12 +147,12 @@
         .title-divider {
             width: 45px;
             height: 1px;
-            margin: 12px 0 8px 3px;
-            background: linear-gradient(90deg, var(--gold), transparent);
+            margin: 12px auto 8px;
+            background: linear-gradient(90deg, transparent, var(--gold), transparent);
         }
-
+        
         .title-overlay p {
-            margin: 0 0 0 3px;
+            margin: 0;
             color: var(--muted);
             font-size: 0.6rem;
             font-weight: 400;
@@ -885,12 +887,12 @@
         @keyframes reveal {
             from {
                 opacity: 0;
-                transform: translateY(-8px);
+                transform: translate(-50%, -8px);
             }
-
+        
             to {
                 opacity: 1;
-                transform: none;
+                transform: translateX(-50%);
             }
         }
 
@@ -949,7 +951,10 @@
         @media (max-width: 680px) {
             .title-overlay {
                 top: max(12px, env(safe-area-inset-top));
-                left: 14px;
+                left: 50%;
+                transform: translateX(-50%);
+                width: max-content;
+                text-align: center;
             }
 
             .title-overlay h1 {
@@ -1959,7 +1964,7 @@ Naples|Italy|40.8518|14.2681|Timeline record.
         const playback = {
             playing: false,
             index: 0,
-            speeds: [0.5, 1, 1.5, 2],
+            speeds: [ 1, 2, 3],
             speedIndex: 1,
             timer: null,
             cameraTimer: null,
