@@ -1259,6 +1259,10 @@
         crossorigin=""
     ></script>
 
+    <audio id="journeyMusic" preload="auto" loop>
+        <source src="assets/journey-music.mp3" type="audio/mpeg">
+    </audio>
+
     <script>
         "use strict";
 
@@ -1409,6 +1413,7 @@ Naples|Italy|40.8518|14.2681|Timeline record.
 
         const elements = {
             controls: document.querySelector(".controls"),
+            journeyMusic: document.getElementById("journeyMusic"),
             stats: document.getElementById("stats"),
             searchInput: document.getElementById("searchInput"),
             searchCount: document.getElementById("searchCount"),
@@ -2087,9 +2092,11 @@ Naples|Italy|40.8518|14.2681|Timeline record.
             }
         }
 
-        function stopPlayback({ completed = false } = {}) {
-            playback.playing = false;
-            playback.session++;
+            function stopPlayback({ completed = false } = {}) {
+                playback.playing = false;
+                playback.session++;
+            
+                fadeOutMusic();
 
             clearTimeout(playback.timer);
             playback.timer = null;
@@ -2368,8 +2375,14 @@ Naples|Italy|40.8518|14.2681|Timeline record.
 
         function startPlayback(startIndex = 0) {
             stopPlayback();
-
+        
             resetFiltersWithoutMovingMap();
+        
+            elements.journeyMusic.currentTime = 0;
+            elements.journeyMusic.volume = 0.35;
+            elements.journeyMusic.play().catch(() => {
+                // Browser blocked playback; animation can still continue.
+            });
             map.closePopup();
             map.stop();
             trailLayer.clearLayers();
@@ -2440,6 +2453,31 @@ Naples|Italy|40.8518|14.2681|Timeline record.
         elements.nextButton.addEventListener("click", () => {
             showLocationAtIndex(playback.index + 1);
         });
+
+        function fadeOutMusic(duration = 600) {
+            const music = elements.journeyMusic;
+            const startVolume = music.volume;
+            const startTime = performance.now();
+        
+            function fade(timestamp) {
+                const progress = Math.min(
+                    1,
+                    (timestamp - startTime) / duration
+                );
+        
+                music.volume = startVolume * (1 - progress);
+        
+                if (progress < 1) {
+                    requestAnimationFrame(fade);
+                } else {
+                    music.pause();
+                    music.currentTime = 0;
+                    music.volume = 0.35;
+                }
+            }
+        
+            requestAnimationFrame(fade);
+        }
 
         /* ---------- Close interfaces ---------- */
 
