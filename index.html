@@ -952,14 +952,15 @@
         }
 
         /* ---------- Mobile ---------- */
-
         @media (max-width: 680px) {
+            /* ---------- Centered mobile title ---------- */
+        
             .title-overlay {
                 top: max(12px, env(safe-area-inset-top));
                 left: 50%;
                 width: max-content;
-                transform: translateX(-50%);
                 text-align: center;
+                transform: translateX(-50%);
             }
         
             .title-overlay h1 {
@@ -972,23 +973,30 @@
                 font-size: 0.52rem;
             }
         
+            /* ---------- Mobile controls ---------- */
+        
             .controls {
                 top: auto;
-                right: 0;
+                right: 10px;
                 bottom: max(12px, env(safe-area-inset-bottom));
-                left: 0;
-                width: 100%;
-                justify-items: center;
+                left: 10px;
+                width: auto;
             }
         
             .command-bar {
-                justify-self: center;
+                justify-self: end;
+                margin-left: auto;
+                margin-right: 8px;
             }
+        
+            /* ---------- Control drawer ---------- */
         
             .control-drawer {
                 max-height: 55vh;
                 overflow-y: auto;
             }
+        
+            /* ---------- Country filter ---------- */
         
             .filter-menu {
                 top: auto;
@@ -997,9 +1005,13 @@
                 max-height: 42vh;
             }
         
+            /* ---------- Mobile tooltips ---------- */
+        
             .icon-button::after {
                 display: none;
             }
+        
+            /* ---------- Compact buttons ---------- */
         
             .button-label {
                 display: none;
@@ -1009,6 +1021,8 @@
                 width: var(--control-size);
                 padding: 0;
             }
+        
+            /* ---------- Leaflet zoom controls ---------- */
         
             .leaflet-control-zoom {
                 margin-right: 12px !important;
