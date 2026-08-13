@@ -1009,8 +1009,9 @@
         
             .filter-menu {
                 top: auto;
-                right: -44px;
+                right: 0;
                 bottom: calc(100% + 10px);
+                width: min(235px, calc(100vw - 20px));
                 max-height: 42vh;
             }
         
@@ -1292,8 +1293,8 @@
         crossorigin=""
     ></script>
 
-    <audio id="journeyMusic" preload="auto" loop>
-        <source src="https://ggttettan.github.io/ttet-footprint/assets/journey-music.mp3" type="audio/mpeg">
+    <audio id="journeyMusic" preload="metadata" loop>
+        <source src="assets/journey-music.mp3" type="audio/mpeg">
     </audio>
 
     <script>
@@ -1474,6 +1475,10 @@ Naples|Italy|40.8518|14.2681|Timeline record.
             pulseToggle: document.getElementById("pulseToggle"),
             liveRegion: document.getElementById("liveRegion")
         };
+
+        elements.journeyMusic.addEventListener("error", () => {
+            announce("Journey music could not load.");
+        });
 
         const reduceMotion = window.matchMedia(
             "(prefers-reduced-motion: reduce)"
@@ -2013,6 +2018,20 @@ Naples|Italy|40.8518|14.2681|Timeline record.
             session: 0
         };
 
+        const musicPlayback = {
+            fadeFrame: null,
+            fadeToken: 0
+        };
+        
+        function cancelMusicFade() {
+            musicPlayback.fadeToken++;
+        
+            if (musicPlayback.fadeFrame !== null) {
+                cancelAnimationFrame(musicPlayback.fadeFrame);
+                musicPlayback.fadeFrame = null;
+            }
+        }
+
         function playbackSpeed() {
             return playback.speeds[playback.speedIndex];
         }
@@ -2125,26 +2144,36 @@ Naples|Italy|40.8518|14.2681|Timeline record.
             }
         }
 
-            function stopPlayback({ completed = false } = {}) {
-                playback.playing = false;
-                playback.session++;
-            
+        function stopPlayback({
+            completed = false,
+            fadeMusic = true
+        } = {}) {
+            playback.playing = false;
+            playback.session++;
+        
+            if (fadeMusic) {
                 fadeOutMusic();
-
+            } else {
+                cancelMusicFade();
+                elements.journeyMusic.pause();
+                elements.journeyMusic.currentTime = 0;
+                elements.journeyMusic.volume = 0.35;
+            }
+        
             clearTimeout(playback.timer);
             playback.timer = null;
-
+        
             clearCameraWait();
-
+        
             if (playback.animationFrame !== null) {
                 cancelAnimationFrame(playback.animationFrame);
                 playback.animationFrame = null;
             }
-
+        
             removeTemporaryLayers();
             map.stop();
             setPlaybackInterface(false);
-
+        
             if (!completed) {
                 map.closePopup();
             }
@@ -2407,27 +2436,30 @@ Naples|Italy|40.8518|14.2681|Timeline record.
         }
 
         function startPlayback(startIndex = 0) {
-            stopPlayback();
+            stopPlayback({ fadeMusic: false });
+            cancelMusicFade();
         
             resetFiltersWithoutMovingMap();
         
-            elements.journeyMusic.currentTime = 0;
-            elements.journeyMusic.volume = 0.35;
-            elements.journeyMusic.play().catch(() => {
-                // Browser blocked playback; animation can still continue.
+            const music = elements.journeyMusic;
+            music.currentTime = 0;
+            music.volume = 0.35;
+        
+            music.play().catch(() => {
+                announce("Music could not play. The journey animation will continue.");
             });
+        
             map.closePopup();
             map.stop();
             trailLayer.clearLayers();
-
+        
             playback.session++;
             playback.playing = true;
-
             playback.index = Math.max(
                 0,
                 Math.min(startIndex, markerEntries.length - 1)
             );
-
+        
             setPlaybackInterface(true);
             playNextLeg();
         }
@@ -2489,10 +2521,23 @@ Naples|Italy|40.8518|14.2681|Timeline record.
 
         function fadeOutMusic(duration = 600) {
             const music = elements.journeyMusic;
+        
+            cancelMusicFade();
+        
+            if (music.paused || music.volume <= 0) {
+                music.pause();
+                music.currentTime = 0;
+                music.volume = 0.35;
+                return;
+            }
+        
+            const token = musicPlayback.fadeToken;
             const startVolume = music.volume;
             const startTime = performance.now();
         
             function fade(timestamp) {
+                if (token !== musicPlayback.fadeToken) return;
+        
                 const progress = Math.min(
                     1,
                     (timestamp - startTime) / duration
@@ -2501,15 +2546,17 @@ Naples|Italy|40.8518|14.2681|Timeline record.
                 music.volume = startVolume * (1 - progress);
         
                 if (progress < 1) {
-                    requestAnimationFrame(fade);
-                } else {
-                    music.pause();
-                    music.currentTime = 0;
-                    music.volume = 0.35;
+                    musicPlayback.fadeFrame = requestAnimationFrame(fade);
+                    return;
                 }
+        
+                music.pause();
+                music.currentTime = 0;
+                music.volume = 0.35;
+                musicPlayback.fadeFrame = null;
             }
         
-            requestAnimationFrame(fade);
+            musicPlayback.fadeFrame = requestAnimationFrame(fade);
         }
 
         /* ---------- Close interfaces ---------- */
