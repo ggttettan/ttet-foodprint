@@ -510,6 +510,59 @@
             font-variant-numeric: tabular-nums;
         }
 
+        .journey-panel {
+            display: grid;
+            gap: 6px;
+            padding: 4px;
+        }
+        
+        .journey-label {
+            color: #d9dade;
+            font-size: 0.66rem;
+            font-weight: 500;
+        }
+        
+        .journey-select {
+            width: 100%;
+            min-height: 38px;
+            padding: 0 10px;
+            color: var(--text);
+            border: 1px solid var(--hairline);
+            border-radius: 8px;
+            outline: 0;
+            background: var(--panel-solid);
+            font: inherit;
+            font-size: 0.65rem;
+        }
+        
+        .journey-select:focus-visible {
+            border-color: rgba(212, 175, 55, 0.55);
+            box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.2);
+        }
+        
+        .journey-description {
+            color: #777c83;
+            font-size: 0.57rem;
+            line-height: 1.45;
+        }
+
+        <div class="journey-panel">
+            <label class="journey-label" for="journeySelect">
+                Playback journey
+            </label>
+        
+            <select id="journeySelect" class="journey-select">
+                <option value="all">All locations</option>
+                <option value="uk-study-year">
+                    UK study year · Sep 2023–Jun 2024
+                </option>
+            </select>
+        
+            <small id="journeyDescription" class="journey-description">
+                Play every recorded location.
+            </small>
+        </div>
+        
         .navigation-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -1335,7 +1388,7 @@
 Penang|Malaysia|5.2971|100.2768|Base operations / Bayan Lepas.
 Kuala Lumpur|Malaysia|3.1390|101.6869|Frequent transit hub.
 Bali|Indonesia|-8.4095|115.1889|July 2026. Inland exploration.
-Bugis|Singapore|1.3000|103.8550|April 2026. Stayed at Capsule@Hive Bugis.
+Singapore|Singapore|1.3000|103.8550|Travel hub. September 2023 study-year transit; later return businesss visits.
 Hong Kong|Hong Kong|22.3193|114.1694|Timeline record.
 Tokyo|Japan|35.6664|139.8732|March 2026. Stayed at Grand Hostel LDK Tokyo Nishikasai.
 Osaka|Japan|34.6937|135.5023|Exploring the nation's kitchen.
@@ -1413,6 +1466,7 @@ Cork|Ireland|51.8985|-8.4756|Timeline record.
 Cobh|Ireland|51.8503|-8.2943|Timeline record.
 Lisbon|Portugal|38.7223|-9.1393|European segment exploration.
 Barcelona|Spain|41.3851|2.1734|Timeline record.
+Berlin|Germany|52.5200|13.4050|June 2024 Europe trip with friends.
 Budapest|Hungary|47.4979|19.0402|European segment exploration.
 Schwechat|Austria|48.1396|16.4717|Timeline record.
 Vienna|Austria|48.2082|16.3738|Timeline record.
@@ -1473,6 +1527,8 @@ Naples|Italy|40.8518|14.2681|Timeline record.
             });
 
         const elements = {
+            journeySelect: document.getElementById("journeySelect"),
+            journeyDescription: document.getElementById("journeyDescription"),
             controls: document.querySelector(".controls"),
             journeyMusic: document.getElementById("journeyMusic"),
             stats: document.getElementById("stats"),
@@ -1591,6 +1647,286 @@ Naples|Italy|40.8518|14.2681|Timeline record.
 
             return { location, marker };
         });
+
+        const journeys = {
+            all: {
+                label: "All locations",
+                description: "Play every recorded location.",
+                stops: []
+            },
+        
+            "uk-study-year": {
+                label: "UK study year",
+                description:
+                    "September 2023 departure, UK study year, Europe trips, " +
+                    "Scottish Highlands, London, and the Dubai transit home.",
+                stops: [
+                    {
+                        name: "Penang",
+                        date: "4 September 2023",
+                        context: "Departed Malaysia for the UK study year."
+                    },
+                    {
+                        name: "Singapore",
+                        date: "4 September 2023",
+                        context: "Singapore transit."
+                    },
+                    {
+                        name: "Frankfurt am Main",
+                        date: "5 September 2023",
+                        context: "Frankfurt transit before arriving in Scotland."
+                    },
+                    {
+                        name: "Edinburgh",
+                        date: "5 September 2023",
+                        context: "Arrived for the UK study year."
+                    },
+                    {
+                        name: "Bristol",
+                        date: "November 2023",
+                        context: "UK study-year trip."
+                    },
+                    {
+                        name: "London",
+                        date: "November 2023",
+                        context: "UK study-year trip."
+                    },
+                    {
+                        name: "Leeds",
+                        date: "November 2023",
+                        context: "University visit."
+                    },
+                    {
+                        name: "Glasgow",
+                        date: "November 2023",
+                        context: "UK study-year travel."
+                    },
+                    {
+                        name: "Edinburgh",
+                        date: "November 2023",
+                        context: "Returned to Edinburgh."
+                    },
+                    {
+                        name: "Milan",
+                        date: "4–14 January 2024",
+                        context: "Italy and Netherlands trip."
+                    },
+                    {
+                        name: "Utrecht",
+                        date: "4–14 January 2024",
+                        context: "Netherlands trip."
+                    },
+                    {
+                        name: "Amsterdam",
+                        date: "4–14 January 2024",
+                        context: "Netherlands trip."
+                    },
+                    {
+                        name: "Düsseldorf",
+                        date: "19–23 January 2024",
+                        context: "Germany trip."
+                    },
+                    {
+                        name: "Weeze",
+                        date: "19–23 January 2024",
+                        context: "Germany trip."
+                    },
+                    {
+                        name: "Munich",
+                        date: "19–23 January 2024",
+                        context: "Germany trip."
+                    },
+                    {
+                        name: "Weingarten",
+                        date: "19–23 January 2024",
+                        context: "Germany trip."
+                    },
+                    {
+                        name: "Ulm",
+                        date: "19–23 January 2024",
+                        context: "Germany trip."
+                    },
+                    {
+                        name: "Dublin",
+                        date: "February 2024",
+                        context: "Ireland trip."
+                    },
+                    {
+                        name: "Cork",
+                        date: "21 February 2024",
+                        context: "Train journey in Ireland."
+                    },
+                    {
+                        name: "Cobh",
+                        date: "21 February 2024",
+                        context: "Cork–Cobh train journey."
+                    },
+                    {
+                        name: "Prague",
+                        date: "16–19 March 2024",
+                        context: "Spring trip."
+                    },
+                    {
+                        name: "Sheffield",
+                        date: "16–19 March 2024",
+                        context: "UK return journey."
+                    },
+                    {
+                        name: "Manchester",
+                        date: "16–19 March 2024",
+                        context: "UK return journey."
+                    },
+                    {
+                        name: "London",
+                        date: "16–19 March 2024",
+                        context: "UK return journey."
+                    },
+                    {
+                        name: "Llandudno",
+                        date: "May 2024",
+                        context: "North Wales trip."
+                    },
+                    {
+                        name: "Berlin",
+                        date: "June 2024",
+                        context: "Europe trip with friends."
+                    },
+                    {
+                        name: "Budapest",
+                        date: "June 2024",
+                        context: "Europe trip with friends."
+                    },
+                    {
+                        name: "Vienna",
+                        date: "June 2024",
+                        context: "Europe trip with friends."
+                    },
+                    {
+                        name: "Venice",
+                        date: "June 2024",
+                        context: "Italy trip with friends."
+                    },
+                    {
+                        name: "Amalfi",
+                        date: "June 2024",
+                        context: "Amalfi Coast trip with friends."
+                    },
+                    {
+                        name: "Rome",
+                        date: "June 2024",
+                        context: "Italy trip with friends."
+                    },
+                    {
+                        name: "Vatican City",
+                        date: "June 2024",
+                        context: "Italy trip with friends."
+                    },
+                    {
+                        name: "Barcelona",
+                        date: "June 2024",
+                        context: "Europe trip with friends."
+                    },
+                    {
+                        name: "Lisbon",
+                        date: "June 2024",
+                        context: "Europe trip with friends."
+                    },
+                    {
+                        name: "Glenfinnan",
+                        date: "June 2024",
+                        context: "Scottish Highlands trip."
+                    },
+                    {
+                        name: "Fort William",
+                        date: "June 2024",
+                        context: "Scottish Highlands trip."
+                    },
+                    {
+                        name: "Inverness",
+                        date: "June 2024",
+                        context: "Loch Ness and Highlands route."
+                    },
+                    {
+                        name: "Aberdeen",
+                        date: "June 2024",
+                        context: "Scotland trip."
+                    },
+                    {
+                        name: "Stonehaven",
+                        date: "June 2024",
+                        context: "Scotland trip."
+                    },
+                    {
+                        name: "London",
+                        date: "June 2024",
+                        context: "Final UK stop before returning home."
+                    },
+                    {
+                        name: "Dubai",
+                        date: "June 2024",
+                        context: "Dubai transit back to Malaysia."
+                    },
+                    {
+                        name: "Penang",
+                        date: "June 2024",
+                        context: "Returned home to Malaysia."
+                    }
+                ]
+            }
+        };
+        
+        let activeJourneyKey = "all";
+        let activePlaybackEntries = markerEntries;
+        
+        function journeyEntries(key) {
+            if (key === "all") return markerEntries;
+        
+            const entriesByName = new Map(
+                markerEntries.map(entry => [entry.location.name, entry])
+            );
+        
+            return journeys[key].stops
+                .map(stop => {
+                    const entry = entriesByName.get(stop.name);
+        
+                    if (!entry) {
+                        console.warn(
+                            `Journey stop "${stop.name}" is missing from locationData.`
+                        );
+                        return null;
+                    }
+        
+                    return {
+                        ...entry,
+                        journeyDate: stop.date,
+                        journeyContext: stop.context
+                    };
+                })
+                .filter(Boolean);
+        }
+        
+        function setJourney(key) {
+            activeJourneyKey = key;
+            activePlaybackEntries = journeyEntries(key);
+        
+            const journey = journeys[key];
+        
+            elements.journeyDescription.textContent =
+                `${journey.description} ${activePlaybackEntries.length} stops.`;
+        
+            announce(
+                `${journey.label} selected. ` +
+                `${activePlaybackEntries.length} stops.`
+            );
+        }
+        
+        elements.journeySelect.addEventListener("change", () => {
+            if (playback.playing) stopPlayback();
+        
+            setJourney(elements.journeySelect.value);
+        });
+        
+        setJourney(activeJourneyKey);
 
         const countryCounts = locations.reduce((counts, location) => {
             counts[location.country] =
@@ -2087,11 +2423,11 @@ Naples|Italy|40.8518|14.2681|Timeline record.
             }
         }
 
-        function updateProgress(index, from, to, distance) {
+        function updateProgress(index, from, to, distance, entries) {
             const percentage =
-                locations.length <= 1
+                entries.length <= 1
                     ? 100
-                    : (index / (locations.length - 1)) * 100;
+                    : (index / (entries.length - 1)) * 100;
 
             elements.progressFill.style.width =
                 `${Math.max(0, Math.min(100, percentage))}%`;
@@ -2103,13 +2439,15 @@ Naples|Italy|40.8518|14.2681|Timeline record.
 
             if (from) {
                 elements.progressRoute.innerHTML =
-                    `${index + 1}/${locations.length} · ` +
+                    `${index + 1}/${entries.length} · ` +
                     `${escapeHTML(from.name)} ➔ ` +
-                    `<strong>${escapeHTML(to.name)}</strong>`;
+                    `<strong>${escapeHTML(to.name)}</strong>` +
+                    `${to.journeyDate ? ` · ${escapeHTML(to.journeyDate)}` : ""}`;
             } else {
                 elements.progressRoute.innerHTML =
-                    `1/${locations.length} · ` +
-                    `<strong>${escapeHTML(to.name)}</strong>`;
+                    `1/${entries.length} · ` +
+                    `<strong>${escapeHTML(to.name)}</strong>` +
+                    `${to.journeyDate ? ` · ${escapeHTML(to.journeyDate)}` : ""}`;
             }
 
             elements.progressDistance.textContent =
@@ -2386,9 +2724,10 @@ Naples|Italy|40.8518|14.2681|Timeline record.
         }
 
         function playNextLeg() {
+            const entries = activePlaybackEntries;
             if (!playback.playing) return;
 
-            if (playback.index >= markerEntries.length) {
+            if (playback.index >= entries.length) {
                 elements.progressFill.style.width = "100%";
                 elements.progressTrack.setAttribute("aria-valuenow", "100");
 
@@ -2400,11 +2739,11 @@ Naples|Italy|40.8518|14.2681|Timeline record.
                 return;
                 }
 
-            const current = markerEntries[playback.index];
+            const current = entries[playback.index];
 
             const previous =
                 playback.index > 0
-                    ? markerEntries[playback.index - 1]
+                    ? entries[playback.index - 1]
                     : null;
 
             const distance = previous
@@ -2418,7 +2757,8 @@ Naples|Italy|40.8518|14.2681|Timeline record.
                 playback.index,
                 previous ? previous.location : null,
                 current.location,
-                distance
+                distance,
+                entries
             );
 
             function arrive() {
@@ -2484,7 +2824,7 @@ Naples|Italy|40.8518|14.2681|Timeline record.
             playback.playing = true;
             playback.index = Math.max(
                 0,
-                Math.min(startIndex, markerEntries.length - 1)
+                Math.min(startIndex, activePlaybackEntries.length - 1)
             );
         
             setPlaybackInterface(true);
